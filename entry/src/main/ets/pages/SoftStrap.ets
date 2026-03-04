@@ -42,7 +42,7 @@ function DashedDivider() {
 export struct SoftStrap {
   build() {
     Column() {
-      // --- 顶部标题栏 ---
+      // --- 顶部标题栏 (固定在顶部) ---
       Row() {
         Text('温馨提醒：软压板已被改动！')
           .fontColor(Color.Red)
@@ -72,129 +72,137 @@ export struct SoftStrap {
 
       DashedDivider()
 
-      // --- 公共 ---
-      Row() {
-        Text('公共: ').fontWeight(FontWeight.Bold).fontSize(16).width('12%')
-        CbItem({ label: '远方投退软压板' })
-        Blank().width(20)
-        CbItem({ label: '远方修改定值' })
-        Blank().width(20)
-        CbItem({ label: '远方切换定值区' })
-        Blank().width(20)
-        CbItem({ label: '遥控' })
+      // --- 中间滚动区域 (自适应剩余高度) ---
+      Scroll() {
+        Column() {
+          // --- 公共 ---
+          Row() {
+            Text('公共: ').fontWeight(FontWeight.Bold).fontSize(16).width('12%')
+            CbItem({ label: '远方投退软压板' })
+            Blank().width(20)
+            CbItem({ label: '远方修改定值' })
+            Blank().width(20)
+            CbItem({ label: '远方切换定值区' })
+            Blank().width(20)
+            CbItem({ label: '遥控' })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          DashedDivider()
+
+          // --- 纵联保护 ---
+          Row() {
+            Text('纵联保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('15%')
+            CbItem({ label: '分相电流差动保护' })
+            Blank().width(20)
+            CbItem({ label: '零序纵联保护' })
+            Blank().width(20)
+            CbItem({ label: '低频减载保护' })
+          }
+          .width('100%')
+
+          DashedDivider()
+
+          // --- 过电流保护 ---
+          Row() {
+            Text('过电流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('15%')
+            CbItem({ label: 'I段' })
+            Blank().width(15)
+            CbItem({ label: 'II段' })
+            Blank().width(15)
+            CbItem({ label: 'III段' })
+            Blank().width(15)
+            CbItem({ label: '反时限' })
+            Blank().width(15)
+            CbItem({ label: 'PT断线相过流' })
+            Blank().width(15)
+            CbItem({ label: '加速段' })
+          }
+          .width('100%')
+
+          DashedDivider()
+
+          // --- 零序过流保护 ---
+          Row() {
+            Text('零序过流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('18%')
+            CbItem({ label: 'I段' })
+            Blank().width(20)
+            CbItem({ label: 'II段' })
+            Blank().width(20)
+            CbItem({ label: 'III段' })
+            Blank().width(20)
+            CbItem({ label: '反时限' })
+            Blank().width(20)
+            CbItem({ label: '加速段' })
+          }
+          .width('100%')
+
+          DashedDivider()
+
+          // --- 自适应零序过流保护 ---
+          Row() {
+            Text('自适应零序过流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('25%')
+            CbItem({ label: 'I段' })
+            Blank().width(20)
+            CbItem({ label: 'II段' })
+            Blank().width(20)
+            CbItem({ label: 'III段' })
+            Blank().width(20)
+            CbItem({ label: '反时限' })
+            Blank().width(20)
+            CbItem({ label: '加速段' })
+          }
+          .width('100%')
+
+          DashedDivider()
+
+          // --- 综合保护网格 (使用 Flex 排版保证 5 列对齐) ---
+          Flex({ wrap: FlexWrap.Wrap }) {
+            CbItem({ label: '母线保护', itemWidth: '20%' })
+            CbItem({ label: '停用重合闸', itemWidth: '20%' })
+            CbItem({ label: '过负荷保护', itemWidth: '20%' })
+            CbItem({ label: '低电压保护', itemWidth: '20%' })
+            CbItem({ label: '过电压保护', itemWidth: '20%' })
+
+            CbItem({ label: '低频保护', itemWidth: '20%' })
+            CbItem({ label: '高频保护', itemWidth: '20%' })
+            CbItem({ label: '逆功率保护', itemWidth: '20%' })
+            CbItem({ label: '谐波电流保护', itemWidth: '20%' })
+            CbItem({ label: '谐波电压保护', itemWidth: '20%' })
+          }
+          .width('100%')
+
+          DashedDivider()
+
+          // --- GOOSE 保护 ---
+          Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+            Text('GOOSE保护: ')
+              .fontWeight(FontWeight.Bold)
+              .fontSize(16)
+              .width('20%')
+              .margin({ top: 6, bottom: 6 })
+
+            CbItem({ label: '过负荷保护', itemWidth: '20%' })
+            CbItem({ label: '低电压保护', itemWidth: '20%' })
+            CbItem({ label: '过电压保护', itemWidth: '20%' })
+            CbItem({ label: '低频保护', itemWidth: '20%' })
+
+            // 第二行占位，保证与上面对齐
+            Row().width('20%')
+            CbItem({ label: '高频保护', itemWidth: '20%' })
+            CbItem({ label: '逆功率保护', itemWidth: '20%' })
+            CbItem({ label: '谐波电流保护', itemWidth: '20%' })
+            CbItem({ label: '谐波电压保护', itemWidth: '20%' })
+          }
+          .width('100%')
+        }
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      DashedDivider()
-
-      // --- 纵联保护 ---
-      Row() {
-        Text('纵联保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('15%')
-        CbItem({ label: '分相电流差动保护' })
-        Blank().width(20)
-        CbItem({ label: '零序纵联保护' })
-        Blank().width(20)
-        CbItem({ label: '低频减载保护' })
-      }
+      .layoutWeight(1) // 关键：利用剩余高度，撑满容器并支持滚动
+      .scrollBar(BarState.Auto)
       .width('100%')
 
-      DashedDivider()
-
-      // --- 过电流保护 ---
-      Row() {
-        Text('过电流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('15%')
-        CbItem({ label: 'I段' })
-        Blank().width(15)
-        CbItem({ label: 'II段' })
-        Blank().width(15)
-        CbItem({ label: 'III段' })
-        Blank().width(15)
-        CbItem({ label: '反时限' })
-        Blank().width(15)
-        CbItem({ label: 'PT断线相过流' })
-        Blank().width(15)
-        CbItem({ label: '加速段' })
-      }
-      .width('100%')
-
-      DashedDivider()
-
-      // --- 零序过流保护 ---
-      Row() {
-        Text('零序过流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('18%')
-        CbItem({ label: 'I段' })
-        Blank().width(20)
-        CbItem({ label: 'II段' })
-        Blank().width(20)
-        CbItem({ label: 'III段' })
-        Blank().width(20)
-        CbItem({ label: '反时限' })
-        Blank().width(20)
-        CbItem({ label: '加速段' })
-      }
-      .width('100%')
-
-      DashedDivider()
-
-      // --- 自适应零序过流保护 ---
-      Row() {
-        Text('自适应零序过流保护: ').fontWeight(FontWeight.Bold).fontSize(16).width('25%')
-        CbItem({ label: 'I段' })
-        Blank().width(20)
-        CbItem({ label: 'II段' })
-        Blank().width(20)
-        CbItem({ label: 'III段' })
-        Blank().width(20)
-        CbItem({ label: '反时限' })
-        Blank().width(20)
-        CbItem({ label: '加速段' })
-      }
-      .width('100%')
-
-      DashedDivider()
-
-      // --- 综合保护网格 (使用 Flex 排版保证 5 列对齐) ---
-      Flex({ wrap: FlexWrap.Wrap }) {
-        CbItem({ label: '母线保护', itemWidth: '20%' })
-        CbItem({ label: '停用重合闸', itemWidth: '20%' })
-        CbItem({ label: '过负荷保护', itemWidth: '20%' })
-        CbItem({ label: '低电压保护', itemWidth: '20%' })
-        CbItem({ label: '过电压保护', itemWidth: '20%' })
-
-        CbItem({ label: '低频保护', itemWidth: '20%' })
-        CbItem({ label: '高频保护', itemWidth: '20%' })
-        CbItem({ label: '逆功率保护', itemWidth: '20%' })
-        CbItem({ label: '谐波电流保护', itemWidth: '20%' })
-        CbItem({ label: '谐波电压保护', itemWidth: '20%' })
-      }
-      .width('100%')
-
-      DashedDivider()
-
-      // --- GOOSE 保护 ---
-      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
-        Text('GOOSE保护: ')
-          .fontWeight(FontWeight.Bold)
-          .fontSize(16)
-          .width('20%')
-          .margin({ top: 6, bottom: 6 })
-
-        CbItem({ label: '过负荷保护', itemWidth: '20%' })
-        CbItem({ label: '低电压保护', itemWidth: '20%' })
-        CbItem({ label: '过电压保护', itemWidth: '20%' })
-        CbItem({ label: '低频保护', itemWidth: '20%' })
-
-        // 第二行占位，保证与上面对齐
-        Row().width('20%')
-        CbItem({ label: '高频保护', itemWidth: '20%' })
-        CbItem({ label: '逆功率保护', itemWidth: '20%' })
-        CbItem({ label: '谐波电流保护', itemWidth: '20%' })
-        CbItem({ label: '谐波电压保护', itemWidth: '20%' })
-      }
-      .width('100%')
-
-      // --- 底部按钮与时间栏 ---
+      // --- 底部按钮与时间栏 (固定在底部) ---
       Row() {
         Row() {
           Button('确认', { type: ButtonType.Normal })
@@ -204,7 +212,7 @@ export struct SoftStrap {
             .height(32)
             .margin({ right: 40 })
 
-          Button('关闭', { type: ButtonType.Normal })
+          Button('取消', { type: ButtonType.Normal }) // 将"关闭"更改为了"取消"
             .backgroundColor('#E2E2E2')
             .fontColor(Color.Black)
             .width(80)
@@ -231,11 +239,12 @@ export struct SoftStrap {
         .width('20%')
       }
       .width('100%')
-      .padding({ top: 20, bottom: 10, right: 10 })
+      .padding({ top: 15, bottom: 5, right: 10 }) // 稍微调整留白空间
 
     }
     .width('100%')
-    .padding(20)
+    .height('100%') // 关键：锁定总高度为屏幕高度，适配1024*600等固定分辨率
+    .padding({ left: 20, right: 20, top: 10, bottom: 10 })
     .backgroundColor('#F8F8F8') // 设置浅灰底色适配工业应用风格
     .border({ width: 1, color: Color.Black }) // 外层黑色边框
   }

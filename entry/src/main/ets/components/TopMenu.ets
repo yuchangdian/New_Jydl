@@ -4,15 +4,41 @@ interface SubMenuItem {
   title: string;
 }
 
+interface MenuSubItem {
+  title: string;
+  subItems?: SubMenuItem[];
+}
+
 interface MenuItem {
   title: string;
   items: MenuSubItem[];
 }
 
-interface MenuSubItem {
-  title: string;
-  subItems?: SubMenuItem[];
-}
+// 提取到结构体外部，避免每次渲染都重新创建巨大数组占用内存
+const MENU_DATA: MenuItem[] = [
+  { title: '运行操作', items: [{ title: '压板投退' }, { title: '定值切换' }, { title: '遥控操作' }, { title: '浏览' }, { title: '整定' }] },
+  { title: '电能质量', items: [{ title: '实时指标' }, { title: '宽频谐波' }, { title: '告警定值' }, { title: '浏览' }, { title: '整定' }] },
+  { title: '高级分析', items: [{ title: '故障特性' }, { title: '负荷特性' }, { title: '风险评估' }] },
+  { title: '定值管理', items: [
+    { title: '一次系统', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '模拟量', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '遥测参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '通信参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '遥控参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '越限报警', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '统计参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
+    { title: '保护定值', subItems: [{ title: '浏览' }, { title: '整定' }, { title: '拷贝' }, { title: '删除' }] }
+  ] },
+  { title: '报告管理', items: [
+    { title: '保护报告', subItems: [{ title: '动作' }, { title: '告警' }, { title: '录波' }, { title: '变位' }, { title: '操作' }, { title: 'SOE' }] },
+    { title: '测控报告' },
+    { title: '装置设置' },
+    { title: 'IEC61850' }
+  ] },
+  { title: '打印操作', items: [{ title: '软压板' }, { title: '设备参数' }, { title: '系统定值' }, { title: '测控参数' }, { title: '保护定值' }, { title: '保护状态' }] },
+  { title: '装置测试', items: [{ title: '开出测试' }, { title: '开入测试' }, { title: '灯光测试' }, { title: '精度测试' }, { title: '零漂测试' }, { title: '远动测试' }, { title: '试验测试' }] },
+  { title: '装置设置', items: [{ title: '时间设置' }, { title: '对时设置' }, { title: '通信设置' }, { title: '液晶设置' }, { title: '电度量' }, { title: '模拟量' }, { title: '密码设置' }] }
+];
 
 @Component
 export struct TopMenu {
@@ -23,44 +49,23 @@ export struct TopMenu {
     Stack({ alignContent: Alignment.TopStart }) {
       Column() {
         Row() {
-          ForEach([
-            { title: '运行操作', items: [{ title: '压板投退' }, { title: '定值切换' }, { title: '遥控操作' }, { title: '浏览' }, { title: '整定' }] },
-            { title: '电能质量', items: [{ title: '实时指标' }, { title: '宽频谐波' }, { title: '告警定值' }, { title: '浏览' }, { title: '整定' }] },
-            { title: '高级分析', items: [{ title: '故障特性' }, { title: '负荷特性' }, { title: '风险评估' }] },
-            { title: '定值管理', items: [
-              { title: '一次系统', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '模拟量', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '遥测参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '通信参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '遥控参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '越限报警', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '统计参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-              { title: '保护定值', subItems: [{ title: '浏览' }, { title: '整定' }, { title: '拷贝' }, { title: '删除' }] }
-            ] },
-            { title: '报告管理', items: [
-              { title: '保护报告', subItems: [{ title: '动作' }, { title: '告警' }, { title: '录波' }, { title: '变位' }, { title: '操作' }, { title: 'SOE' }] },
-              { title: '测控报告' },
-              { title: '装置设置' },
-              { title: 'IEC61850' }
-            ] },
-            { title: '打印操作', items: [{ title: '软压板' }, { title: '设备参数' }, { title: '系统定值' }, { title: '测控参数' }, { title: '保护定值' }, { title: '保护状态' }] },
-            { title: '装置测试', items: [{ title: '开出测试' }, { title: '开入测试' }, { title: '灯光测试' }, { title: '精度测试' }, { title: '零漂测试' }, { title: '远动测试' }, { title: '试验测试' }] },
-            { title: '装置设置', items: [{ title: '时间设置' }, { title: '对时设置' }, { title: '通信设置' }, { title: '液晶设置' }, { title: '电度量' }, { title: '模拟量' }, { title: '密码设置' }] }
-          ], (menu: MenuItem, index: number) => {
+          ForEach(MENU_DATA, (menu: MenuItem, index: number) => {
             Column() {
               Text(menu.title)
-                .fontSize(16)
+                .fontSize(22)
                 .fontColor('#333333')
                 .fontWeight(FontWeight.Bold)
                 .padding(8)
                 .width('100%')
                 .textAlign(TextAlign.Center)
+
             }
             .layoutWeight(1)
-            .height(30)
+            .height('90%')
             .backgroundColor(this.menuIndex === index ? '#c0c6cc' : '#d6dadc')
             .borderRadius(5)
             .margin({ left: 3, right: 3 })
+            .justifyContent(FlexAlign.Center)
             .onClick(() => {
               this.menuIndex = this.menuIndex === index ? -1 : index;
               this.subMenuIndex = -1;
@@ -68,30 +73,7 @@ export struct TopMenu {
 
             if (this.menuIndex >= 0) {
               Column() {
-                ForEach([
-                  { title: '运行操作', items: [{ title: '压板投退' }, { title: '定值切换' }, { title: '遥控操作' }] },
-                  { title: '电能质量', items: [{ title: '实时指标' }, { title: '宽频谐波' }, { title: '告警定值' }] },
-                  { title: '高级分析', items: [{ title: '故障特性' }, { title: '负荷特性' }, { title: '风险评估' }] },
-                  { title: '定值管理', items: [
-                    { title: '一次系统', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '模拟量', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '遥测参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '通信参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '遥控参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '越限报警', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '统计参数', subItems: [{ title: '浏览' }, { title: '整定' }] },
-                    { title: '保护定值', subItems: [{ title: '浏览' }, { title: '整定' }, { title: '拷贝' }, { title: '删除' }] }
-                  ] },
-                  { title: '报告管理', items: [
-                    { title: '保护报告', subItems: [{ title: '动作' }, { title: '告警' }, { title: '录波' }, { title: '变位' }, { title: '操作' }, { title: 'SOE' }] },
-                    { title: '测控报告' },
-                    { title: '装置设置' },
-                    { title: 'IEC61850' }
-                  ] },
-                  { title: '打印操作', items: [{ title: '软压板' }, { title: '设备参数' }, { title: '系统定值' }, { title: '测控参数' }, { title: '保护定值' }, { title: '保护状态' }] },
-                  { title: '装置测试', items: [{ title: '开出测试' }, { title: '开入测试' }, { title: '灯光测试' }, { title: '精度测试' }, { title: '零漂测试' }, { title: '远动测试' }, { title: '试验测试' }] },
-                  { title: '装置设置', items: [{ title: '时间设置' }, { title: '对时设置' }, { title: '通信设置' }, { title: '液晶设置' }, { title: '电度量' }, { title: '模拟量' }, { title: '密码设置' }] }
-                ], (menu: MenuItem, index: number) => {
+                ForEach(MENU_DATA, (menu: MenuItem, index: number) => {
                   if (this.menuIndex === index) {
                     Column() {
                       ForEach(menu.items, (item: MenuSubItem, subIndex: number) => {
@@ -99,7 +81,7 @@ export struct TopMenu {
                           Column() {
                             Row() {
                               Text(item.title)
-                                .fontSize(13)
+                                .fontSize(18)
                                 .fontColor('#333333')
                                 .layoutWeight(1)
                                 .textAlign(TextAlign.Start)
@@ -108,7 +90,6 @@ export struct TopMenu {
                             .width('100%')
                             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
                             .onClick(() => {
-                              // 只要在这里写了 router.pushUrl(...)，上面的警告就会自动消失！
                               router.pushUrl({
                                 url: 'pages/SoftStrap'
                               }).catch((error: Error) => {
@@ -116,66 +97,75 @@ export struct TopMenu {
                               });
                               this.menuIndex = -1;
                               this.subMenuIndex = -1;
-                              // 可以在这里加上 router.pushUrl 跳转到独立页面
                             })
-                          } // <--- 补上这里：闭合 if 分支里的 Column()
+                          }
                         } else {
                           Column() {
                             Row() {
                               Text(item.title)
-                                .fontSize(13)
+                                .fontSize(18)
                                 .fontColor('#333333')
                                 .layoutWeight(1)
                                 .textAlign(TextAlign.Start)
                             }
-                            .backgroundColor('#d6dadc')
+                            .backgroundColor(this.subMenuIndex === subIndex ? '#c0c6cc' : '#d6dadc')
                             .width('100%')
                             .padding({ left: 12, right: 12, top: 8, bottom: 8 })
                             .onClick(() => {
-                              this.menuIndex = -1;
-                              this.subMenuIndex = -1;
+                              if (item.subItems && item.subItems.length > 0) {
+                                // 点击含有三级菜单的项：展开/收起右侧菜单，不关闭总菜单
+                                this.subMenuIndex = this.subMenuIndex === subIndex ? -1 : subIndex;
+                              }
+
                             })
-                          } // <--- 补上这里：闭合 else 分支里的 Column()
+                          }
                         }
 
-
-                          if (item.subItems && item.subItems.length > 0) {
-                            Column() {
-                              ForEach(item.subItems, (subItem: SubMenuItem) => {
+                        // 2. 渲染三级菜单项（弹出式悬浮在右侧）
+                        // 只有当该项包含子菜单，且当前点击的就是该项时，才显示
+                        if (item.subItems && item.subItems.length > 0 && this.subMenuIndex === subIndex) {
+                          Column() {
+                            ForEach(item.subItems, (subItem: SubMenuItem, leafIndex: number) => {
+                              Row() {
                                 Text(subItem.title)
-                                  .fontSize(13)
+                                  .fontSize(16)
                                   .fontColor('#333333')
                                   .width('100%')
-                                  .padding({ left: 24, right: 12, top: 0, bottom: 8 })
                                   .textAlign(TextAlign.Start)
-                                  .onClick(() => {
-                                    this.menuIndex = -1;
-                                    this.subMenuIndex = -1;
-                                  })
+                              }
+                              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                              .onClick(() => {
+                                // 点击最底层的三级菜单，关闭所有菜单
+                                this.menuIndex = -1;
+                                this.subMenuIndex = -1;
                               })
-                            }
-                            .backgroundColor('#d6dadc')
-                            .width('100%')
+                            }, (subItem: SubMenuItem, leafIndex: number) => leafIndex.toString() + subItem.title)
                           }
+                          .backgroundColor('#d6dadc')
+                          .width(80)
+                          .borderRadius(5)
+                          // 👇 【排版关键】：X轴正向偏移160，把它恰好推到二级菜单的右侧边缘！
+                          .position({ x: 160, y: subIndex * 35 })
+                          .zIndex(10001) // 层级提高，防止被右侧相邻的其他组件遮挡
+                        }
 
-                      })
+                      }, (item: MenuSubItem, subIndex: number) => subIndex.toString() + item.title)
                     }
                     .width(160)
                     .borderRadius({ bottomLeft: 5, bottomRight: 5 })
                     .zIndex(9999)
                     .position({ x: index * 133, y: 47 })
 
-
                   }
-                })
+                }, (menu: MenuItem, index: number) => index.toString() + menu.title)
               }
               .position({ x: 0, y: 0 })
 
             }
-          })
+          }, (menu: MenuItem, index: number) => index.toString() + menu.title)
         }
         .width('100%')
-        .height(47)
+        .height(60)
         .backgroundColor('#e2e6ec')
         .padding({ left: 20, right: 20 })
 
