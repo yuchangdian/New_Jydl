@@ -92,8 +92,8 @@ struct Index {
         .zIndex(9999)
 
       Row() {
-        this.LeftPanel()
-        this.RightPanel()
+         this.LeftPanel()
+         this.RightPanel()
       }
       .layoutWeight(1)
     }

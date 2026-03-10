@@ -14,7 +14,6 @@ interface MenuItem {
   items: MenuSubItem[];
 }
 
-// 提取到结构体外部，避免每次渲染都重新创建巨大数组占用内存
 const MENU_DATA: MenuItem[] = [
   { title: '运行操作', items: [{ title: '压板投退' }, { title: '定值切换' }, { title: '遥控操作' }, { title: '浏览' }, { title: '整定' }] },
   { title: '电能质量', items: [{ title: '实时指标' }, { title: '宽频谐波' }, { title: '告警定值' }, { title: '浏览' }, { title: '整定' }] },
@@ -45,135 +44,139 @@ export struct TopMenu {
   @State menuIndex: number = -1;
   @State subMenuIndex: number = -1;
 
+  private closeMenus(): void {
+    this.menuIndex = -1;
+    this.subMenuIndex = -1;
+  }
+
+  private openPage(url: string): void {
+    router.pushUrl({
+      url: url
+    }).catch((error: Error) => {
+      console.error(`跳转失败，错误码：${error.name}，信息：${error.message}`);
+    });
+    this.closeMenus();
+  }
+
+  private handleLeafClick(item: MenuSubItem, subItem: SubMenuItem): void {
+    if (item.title === '保护定值' && subItem.title === '整定') {
+      this.openPage('pages/RelaySetting_SetSelect');
+      return;
+    }
+
+    this.closeMenus();
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       Column() {
         Row() {
           ForEach(MENU_DATA, (menu: MenuItem, index: number) => {
             Column() {
-              Text(menu.title)
-                .fontSize(22)
-                .fontColor('#333333')
-                .fontWeight(FontWeight.Bold)
-                .padding(8)
-                .width('100%')
-                .textAlign(TextAlign.Center)
+              Column() {
+                Text(menu.title)
+                  .fontSize(22)
+                  .fontColor('#333333')
+                  .fontWeight(FontWeight.Bold)
+                  .padding(8)
+                  .width('100%')
+                  .textAlign(TextAlign.Center)
+              }
+              .width('100%')
+              .height('100%')
+              .backgroundColor(this.menuIndex === index ? '#c0c6cc' : '#d6dadc')
+              .borderRadius(5)
+              .margin({ left: 3, right: 3 })
+              .justifyContent(FlexAlign.Center)
+              .onClick(() => {
+                this.menuIndex = this.menuIndex === index ? -1 : index;
+                this.subMenuIndex = -1;
+              });
 
+              if (this.menuIndex === index) {
+                Column() {
+                  ForEach(menu.items, (item: MenuSubItem, subIndex: number) => {
+                    if (item.title === '压板投退') {
+                      Column() {
+                        Row() {
+                          Text(item.title)
+                            .fontSize(22)
+                            .fontColor('#333333')
+                            .layoutWeight(1)
+                            .textAlign(TextAlign.Start)
+                        }
+                        .backgroundColor('#d6dadc')
+                        .width('100%')
+                        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                        .onClick(() => {
+                          this.openPage('pages/SoftStrapSet');
+                        });
+                      }
+                    } else {
+                      Column() {
+                        Row() {
+                          Text(item.title)
+                            .fontSize(22)
+                            .fontColor('#333333')
+                            .layoutWeight(1)
+                            .textAlign(TextAlign.Start)
+                        }
+                        .backgroundColor(this.subMenuIndex === subIndex ? '#c0c6cc' : '#d6dadc')
+                        .width('100%')
+                        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+                        .onClick(() => {
+                          if (item.subItems && item.subItems.length > 0) {
+                            this.subMenuIndex = this.subMenuIndex === subIndex ? -1 : subIndex;
+                          }
+                        });
+                      }
+                    }
+
+                    if (item.subItems && item.subItems.length > 0 && this.subMenuIndex === subIndex) {
+                      Column() {
+                        ForEach(item.subItems, (subItem: SubMenuItem, leafIndex: number) => {
+                          Row() {
+                            Text(subItem.title)
+                              .fontSize(16)
+                              .fontColor('#333333')
+                              .width('100%')
+                              .textAlign(TextAlign.Center)
+                          }
+                          .width('100%')
+                          .height(35)
+                          .justifyContent(FlexAlign.Center)
+                          .padding({ left: 12, right: 12 })
+                          .onClick(() => {
+                            this.handleLeafClick(item, subItem);
+                          });
+                        }, (subItem: SubMenuItem, leafIndex: number) => leafIndex.toString() + subItem.title)
+                      }
+                      .backgroundColor('#d6dadc')
+                      .width(100)
+                      .height(item.subItems.length * 35)
+                      .borderRadius(5)
+                      .position({ x: '100%', y: subIndex * 36 })
+                      .zIndex(10001);
+                    }
+                  }, (item: MenuSubItem, subIndex: number) => subIndex.toString() + item.title)
+                }
+                .width('100%')
+                .borderRadius({ bottomLeft: 5, bottomRight: 5 })
+                .clip(false)
+                .zIndex(9999);
+              }
             }
             .layoutWeight(1)
-            .height('90%')
-            .backgroundColor(this.menuIndex === index ? '#c0c6cc' : '#d6dadc')
-            .borderRadius(5)
-            .margin({ left: 3, right: 3 })
-            .justifyContent(FlexAlign.Center)
-            .onClick(() => {
-              this.menuIndex = this.menuIndex === index ? -1 : index;
-              this.subMenuIndex = -1;
-            })
-
-            if (this.menuIndex >= 0) {
-              Column() {
-                ForEach(MENU_DATA, (menu: MenuItem, index: number) => {
-                  if (this.menuIndex === index) {
-                    Column() {
-                      ForEach(menu.items, (item: MenuSubItem, subIndex: number) => {
-                        if(item.title === "压板投退"){
-                          Column() {
-                            Row() {
-                              Text(item.title)
-                                .fontSize(18)
-                                .fontColor('#333333')
-                                .layoutWeight(1)
-                                .textAlign(TextAlign.Start)
-                            }
-                            .backgroundColor('#d6dadc')
-                            .width('100%')
-                            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                            .onClick(() => {
-                              router.pushUrl({
-                                url: 'pages/SoftStrap'
-                              }).catch((error: Error) => {
-                                console.error(`跳转失败，错误码：${error.name}，信息：${error.message}`);
-                              });
-                              this.menuIndex = -1;
-                              this.subMenuIndex = -1;
-                            })
-                          }
-                        } else {
-                          Column() {
-                            Row() {
-                              Text(item.title)
-                                .fontSize(18)
-                                .fontColor('#333333')
-                                .layoutWeight(1)
-                                .textAlign(TextAlign.Start)
-                            }
-                            .backgroundColor(this.subMenuIndex === subIndex ? '#c0c6cc' : '#d6dadc')
-                            .width('100%')
-                            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                            .onClick(() => {
-                              if (item.subItems && item.subItems.length > 0) {
-                                // 点击含有三级菜单的项：展开/收起右侧菜单，不关闭总菜单
-                                this.subMenuIndex = this.subMenuIndex === subIndex ? -1 : subIndex;
-                              }
-
-                            })
-                          }
-                        }
-
-                        // 2. 渲染三级菜单项（弹出式悬浮在右侧）
-                        // 只有当该项包含子菜单，且当前点击的就是该项时，才显示
-                        if (item.subItems && item.subItems.length > 0 && this.subMenuIndex === subIndex) {
-                          Column() {
-                            ForEach(item.subItems, (subItem: SubMenuItem, leafIndex: number) => {
-                              Row() {
-                                Text(subItem.title)
-                                  .fontSize(16)
-                                  .fontColor('#333333')
-                                  .width('100%')
-                                  .textAlign(TextAlign.Start)
-                              }
-                              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-                              .onClick(() => {
-                                // 点击最底层的三级菜单，关闭所有菜单
-                                this.menuIndex = -1;
-                                this.subMenuIndex = -1;
-                              })
-                            }, (subItem: SubMenuItem, leafIndex: number) => leafIndex.toString() + subItem.title)
-                          }
-                          .backgroundColor('#d6dadc')
-                          .width(80)
-                          .borderRadius(5)
-                          // 👇 【排版关键】：X轴正向偏移160，把它恰好推到二级菜单的右侧边缘！
-                          .position({ x: 160, y: subIndex * 35 })
-                          .zIndex(10001) // 层级提高，防止被右侧相邻的其他组件遮挡
-                        }
-
-                      }, (item: MenuSubItem, subIndex: number) => subIndex.toString() + item.title)
-                    }
-                    .width(160)
-                    .borderRadius({ bottomLeft: 5, bottomRight: 5 })
-                    .zIndex(9999)
-                    .position({ x: index * 133, y: 47 })
-
-                  }
-                }, (menu: MenuItem, index: number) => index.toString() + menu.title)
-              }
-              .position({ x: 0, y: 0 })
-
-            }
+            .height(60);
           }, (menu: MenuItem, index: number) => index.toString() + menu.title)
         }
         .width('100%')
-        .height(60)
+        .height('12%')
         .backgroundColor('#e2e6ec')
-        .padding({ left: 20, right: 20 })
-
+        .padding({ left: 20, right: 20 });
       }
-      .width('100%')
-
-
+      .width('100%');
     }
-    .width('100%')
+    .width('100%');
   }
 }
