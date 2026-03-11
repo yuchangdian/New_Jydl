@@ -47,16 +47,22 @@ export struct RelaySetting_SetSelect {
   private normalizeZoneCode(): string | undefined {
     let trimmed = this.zoneCode.trim();
     if (trimmed.length === 0) {
-      this.warningText = '请输入保护定值区号';
+      this.warningText = '\u8bf7\u8f93\u5165\u4fdd\u62a4\u5b9a\u503c\u533a\u53f7';
       return undefined;
     }
 
     if (!/^\d{1,2}$/.test(trimmed)) {
-      this.warningText = '区号仅支持 00-99';
+      this.warningText = '\u533a\u53f7\u4ec5\u652f\u6301 00-19';
       return undefined;
     }
 
     let normalized = trimmed.padStart(2, '0');
+    let zoneIndex = Number(normalized);
+    if (isNaN(zoneIndex) || zoneIndex < 0 || zoneIndex > 19) {
+      this.warningText = '\u533a\u53f7\u4ec5\u652f\u6301 00-19';
+      return undefined;
+    }
+
     this.warningText = '';
     this.zoneCode = normalized;
     return normalized;

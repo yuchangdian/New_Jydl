@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\Lenovo\\.ohos\\config\\default_HM_New_Jydl_yze5amC7j3INEk1S8Ly1jbEoUGGGGZdHJAvOUGbOzf4=.cer",
+          "certpath": "C:\\Users\\Lenovo\\.ohos\\config\\default_New_Jydl_vCL0MAn8elEyWgJGiS40DHiiZidh8QA95ZyBkyTlBnE=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B781FC9129FB7BCD51F266082A2E69040A788F0ABBE90571700EFF0167B14FEEC2CFD992CE995BF",
-          "profile": "C:\\Users\\Lenovo\\.ohos\\config\\default_HM_New_Jydl_yze5amC7j3INEk1S8Ly1jbEoUGGGGZdHJAvOUGbOzf4=.p7b",
+          "keyPassword": "0000001BDBD838C163D8C474AE7777CB591FB652D9A8F6499DA659FE2ACDCF1F5B97C6B2411D2AE575ECF2",
+          "profile": "C:\\Users\\Lenovo\\.ohos\\config\\default_New_Jydl_vCL0MAn8elEyWgJGiS40DHiiZidh8QA95ZyBkyTlBnE=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\Lenovo\\.ohos\\config\\default_HM_New_Jydl_yze5amC7j3INEk1S8Ly1jbEoUGGGGZdHJAvOUGbOzf4=.p12",
-          "storePassword": "0000001B4A32923E0FE00D686FC8855D2EC9C38AE5F7730B9CC9A727ED4EC9D08812804907FE5780E2F529"
+          "storeFile": "C:\\Users\\Lenovo\\.ohos\\config\\default_New_Jydl_vCL0MAn8elEyWgJGiS40DHiiZidh8QA95ZyBkyTlBnE=.p12",
+          "storePassword": "0000001B9094F17B2B035E3EA8C5A141DF3A5D1DB69CF0CFFCB805E655FB920155C943D0050B34043EB8A1"
         }
       }
     ],

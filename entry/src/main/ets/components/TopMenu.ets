@@ -137,7 +137,7 @@ export struct TopMenu {
                         ForEach(item.subItems, (subItem: SubMenuItem, leafIndex: number) => {
                           Row() {
                             Text(subItem.title)
-                              .fontSize(16)
+                              .fontSize(22)
                               .fontColor('#333333')
                               .width('100%')
                               .textAlign(TextAlign.Center)

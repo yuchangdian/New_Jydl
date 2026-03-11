@@ -1,9 +1,34 @@
 import router from '@ohos.router';
 import display from '@ohos.display';
+import {
+  RELAY_PROFILE_COUNT,
+  RELAY_SETTING_PROFILES_STORE_KEY,
+  RelayFieldBinding,
+  RelaySettingProfile,
+  RelaySettingProfilesStore,
+  RelayStoredField,
+  buildRelayFieldBindings,
+  cloneRelaySettingProfilesStoreForProfileUpdate,
+  createDefaultRelaySettingProfile,
+  createDefaultRelaySettingProfilesStore,
+  relayDefaultSelectOptions,
+  relayDefaultStoredField,
+  relayDeserializeProfilesStore,
+  relayFindFieldBinding,
+  relayFormatStoredField,
+  relayNormalizeZoneCode,
+  relayParseStoredField,
+  relayReadProfileField,
+  relaySerializeProfilesStore,
+  relayWriteProfileField,
+  relayZoneCodeForIndex,
+  relayZoneCodeToIndex
+} from './RelaySettingProfiles';
 
 const RELAY_SETTING_STORE_KEY: string = 'relay_setting_set_store';
 
 PersistentStorage.persistProp(RELAY_SETTING_STORE_KEY, '');
+PersistentStorage.persistProp(RELAY_SETTING_PROFILES_STORE_KEY, '');
 
 @Observed
 class StrapFlag {
@@ -696,6 +721,8 @@ const RELAY_MONITOR_SECTIONS: RelayMonitorSectionSpec[] = [
   ])
 ];
 
+const RELAY_FIELD_BINDINGS: RelayFieldBinding[] = buildRelayFieldBindings(RELAY_MAIN_SECTIONS, RELAY_MONITOR_SECTIONS);
+
 @Observed
 class RelaySettingVM {
   headerMode: HeaderModeState = new HeaderModeState();
@@ -756,11 +783,13 @@ struct QtStaticCheck {
 @Component
 struct RelaySettingSet {
   @StorageLink('relay_setting_set_store') relaySettingStore: string = '';
+  @StorageLink('relay_setting_profiles_store_v2') relaySettingProfilesStore: string = '';
+  @State profilesStore: RelaySettingProfilesStore = new RelaySettingProfilesStore();
   @State vm: RelaySettingVM = new RelaySettingVM();
-  @State fieldValues: RelayValueEntry[] = [];
   @State uiScale: number = 1;
   @State modeInSelected: boolean = true;
-  @State currentZoneCode: string = '1';
+  @State currentZoneCode: string = '00';
+  @State currentProfileIndex: number = 0;
   @State selectOverlayVisible: boolean = false;
   @State selectOverlayTitle: string = '请选择';
   @State selectOverlayOptions: string[] = [];
@@ -789,10 +818,6 @@ struct RelaySettingSet {
 
   private scopedValueKeyForZone(zoneCode: string, id: string): string {
     return zoneCode + '|' + id;
-  }
-
-  private scopedValueKey(id: string): string {
-    return this.scopedValueKeyForZone(this.currentZoneCode, id);
   }
 
   private findValueIndex(entries: RelayValueEntry[], key: string): number {
@@ -832,112 +857,149 @@ struct RelaySettingSet {
     return entries;
   }
 
-  private serializeValueEntries(entries: RelayValueEntry[]): string {
-    let lines: string[] = [];
-    for (let i = 0; i < entries.length; i++) {
-      lines.push(entries[i].key + '\t' + encodeURIComponent(entries[i].value));
-    }
-    return lines.join('\n');
+  private bindingForFieldId(fieldId: string): RelayFieldBinding | undefined {
+    return relayFindFieldBinding(RELAY_FIELD_BINDINGS, fieldId);
   }
 
-  private pushDefaultEntry(entries: RelayValueEntry[], key: string, value: string): void {
-    if (this.findValueIndex(entries, key) === -1) {
-      entries.push(new RelayValueEntry(key, value));
+  private currentProfile(): RelaySettingProfile | undefined {
+    if (this.currentProfileIndex < 0 || this.currentProfileIndex >= this.profilesStore.profiles.length) {
+      return undefined;
     }
+    return this.profilesStore.profiles[this.currentProfileIndex];
   }
 
-  private createDefaultEntriesForZone(zoneCode: string): RelayValueEntry[] {
-    let entries: RelayValueEntry[] = [];
-    for (let sectionIndex = 0; sectionIndex < RELAY_MAIN_SECTIONS.length; sectionIndex++) {
-      let section = RELAY_MAIN_SECTIONS[sectionIndex];
-      for (let rowIndex = 0; rowIndex < section.rows.length; rowIndex++) {
-        let row = section.rows[rowIndex];
-        for (let itemIndex = 0; itemIndex < row.items.length; itemIndex++) {
-          let item = row.items[itemIndex];
-          for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
-            let cell = item.cells[cellIndex];
-            if (cell.kind === 'input' || cell.kind === 'select') {
-              this.pushDefaultEntry(entries, this.scopedValueKeyForZone(zoneCode, cell.id), cell.text);
-            }
-          }
-        }
-      }
+  private syncCurrentZoneState(zoneCode?: string): void {
+    this.currentZoneCode = relayNormalizeZoneCode(zoneCode ? zoneCode : this.currentZoneCode);
+    this.currentProfileIndex = relayZoneCodeToIndex(this.currentZoneCode);
+    this.syncCurrentZoneTitle();
+  }
+
+  private syncCurrentZoneTitle(): void {
+    this.vm.titleRight = '—整定 ' + this.currentZoneCode + ' 区保护定值';
+  }
+
+  private findLegacyValue(entries: RelayValueEntry[], key: string): string | undefined {
+    let index = this.findValueIndex(entries, key);
+    if (index === -1) {
+      return undefined;
+    }
+    return entries[index].value;
+  }
+
+  private migrateLegacyProfilesStore(): RelaySettingProfilesStore {
+    let store = createDefaultRelaySettingProfilesStore(RELAY_FIELD_BINDINGS);
+    let entries = this.deserializeValueEntries(this.relaySettingStore);
+    if (entries.length === 0) {
+      return store;
     }
 
-    for (let sectionIndex = 0; sectionIndex < RELAY_MONITOR_SECTIONS.length; sectionIndex++) {
-      let section = RELAY_MONITOR_SECTIONS[sectionIndex];
-      for (let fieldIndex = 0; fieldIndex < section.fields.length; fieldIndex++) {
-        let field = section.fields[fieldIndex];
-        this.pushDefaultEntry(entries, this.scopedValueKeyForZone(zoneCode, field.id), field.value);
+    for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+      let entry = entries[entryIndex];
+      let splitIndex = entry.key.indexOf('|');
+      if (splitIndex <= 0 || splitIndex >= entry.key.length - 1) {
+        continue;
       }
+
+      let rawZoneCode = entry.key.substring(0, splitIndex).trim();
+      if (!/^\d{1,2}$/.test(rawZoneCode)) {
+        continue;
+      }
+
+      let binding = this.bindingForFieldId(entry.key.substring(splitIndex + 1));
+      if (!binding) {
+        continue;
+      }
+
+      let normalizedZoneCode = relayNormalizeZoneCode(rawZoneCode);
+      let targetProfile = store.profiles[relayZoneCodeToIndex(normalizedZoneCode)];
+      let previousField = relayReadProfileField(targetProfile, binding);
+      let nextField = relayParseStoredField(
+        entry.value,
+        binding,
+        previousField ? previousField : relayDefaultStoredField(binding)
+      );
+      relayWriteProfileField(targetProfile, binding, nextField);
     }
-    return entries;
+
+    return store;
   }
 
   private loadValueEntries(): void {
-    let entries = this.deserializeValueEntries(this.relaySettingStore);
-    let defaults = this.createDefaultEntriesForZone(this.currentZoneCode);
-    for (let i = 0; i < defaults.length; i++) {
-      this.pushDefaultEntry(entries, defaults[i].key, defaults[i].value);
+    let nextStore = this.relaySettingProfilesStore.trim().length > 0
+      ? relayDeserializeProfilesStore(this.relaySettingProfilesStore, RELAY_FIELD_BINDINGS)
+      : undefined;
+
+    if (nextStore) {
+      this.profilesStore = nextStore;
+      return;
     }
-    this.fieldValues = entries;
+
+    if (this.relaySettingProfilesStore.trim().length === 0) {
+      let migratedStore = this.migrateLegacyProfilesStore();
+      this.profilesStore = migratedStore;
+      this.relaySettingProfilesStore = relaySerializeProfilesStore(migratedStore);
+      return;
+    }
+
+    this.profilesStore = createDefaultRelaySettingProfilesStore(RELAY_FIELD_BINDINGS);
   }
 
   private saveValueEntries(noticeText: string = ''): void {
-    this.relaySettingStore = this.serializeValueEntries(this.fieldValues);
+    this.relaySettingProfilesStore = relaySerializeProfilesStore(this.profilesStore);
     this.vm.noticeText = noticeText;
   }
 
   private resetCurrentZoneValues(): void {
-    let nextEntries: RelayValueEntry[] = [];
-    let currentPrefix = this.currentZoneCode + '|';
-    for (let i = 0; i < this.fieldValues.length; i++) {
-      let entry = this.fieldValues[i];
-      if (entry.key.indexOf(currentPrefix) !== 0) {
-        nextEntries.push(new RelayValueEntry(entry.key, entry.value));
-      }
-    }
-    let defaults = this.createDefaultEntriesForZone(this.currentZoneCode);
-    for (let i = 0; i < defaults.length; i++) {
-      nextEntries.push(new RelayValueEntry(defaults[i].key, defaults[i].value));
-    }
-    this.fieldValues = nextEntries;
+    let nextStore = cloneRelaySettingProfilesStoreForProfileUpdate(this.profilesStore, this.currentProfileIndex);
+    nextStore.profiles[this.currentProfileIndex] = createDefaultRelaySettingProfile(this.currentZoneCode, RELAY_FIELD_BINDINGS);
+    this.profilesStore = nextStore;
     this.saveValueEntries();
   }
 
-  private readValue(key: string, fallbackValue: string): string {
-    let index = this.findValueIndex(this.fieldValues, key);
-    if (index === -1) {
-      return fallbackValue;
-    }
-    return this.fieldValues[index].value;
+  private sameStoredField(left: RelayStoredField | undefined, right: RelayStoredField): boolean {
+    return !!left &&
+      left.valueType === right.valueType &&
+      left.textValue === right.textValue &&
+      left.numberValue === right.numberValue &&
+      left.enumValue === right.enumValue;
   }
 
-  private writeValue(key: string, value: string): void {
-    let nextEntries: RelayValueEntry[] = [];
-    let found = false;
-    let changed = false;
-    for (let i = 0; i < this.fieldValues.length; i++) {
-      let entry = this.fieldValues[i];
-      if (entry.key === key) {
-        found = true;
-        if (entry.value === value) {
-          return;
-        }
-        nextEntries.push(new RelayValueEntry(key, value));
-        changed = true;
-      } else {
-        nextEntries.push(new RelayValueEntry(entry.key, entry.value));
-      }
+  private readValue(fieldId: string, fallbackValue: string): string {
+    let binding = this.bindingForFieldId(fieldId);
+    if (!binding) {
+      return fallbackValue;
     }
-    if (!found) {
-      nextEntries.push(new RelayValueEntry(key, value));
-      changed = true;
+    let profile = this.currentProfile();
+    if (!profile) {
+      return fallbackValue;
     }
-    if (!changed) {
+    return relayFormatStoredField(relayReadProfileField(profile, binding), binding);
+  }
+
+  private writeValue(fieldId: string, value: string): void {
+    let binding = this.bindingForFieldId(fieldId);
+    if (!binding) {
       return;
     }
-    this.fieldValues = nextEntries;
+    let profile = this.currentProfile();
+    if (!profile) {
+      return;
+    }
+
+    let currentField = relayReadProfileField(profile, binding);
+    let nextField = relayParseStoredField(
+      value,
+      binding,
+      currentField ? currentField : relayDefaultStoredField(binding)
+    );
+    if (this.sameStoredField(currentField, nextField)) {
+      return;
+    }
+
+    let nextStore = cloneRelaySettingProfilesStoreForProfileUpdate(this.profilesStore, this.currentProfileIndex);
+    let nextProfile = nextStore.profiles[this.currentProfileIndex];
+    relayWriteProfileField(nextProfile, binding, nextField);
+    this.profilesStore = nextStore;
     this.vm.noticeText = '';
   }
 
@@ -1022,19 +1084,19 @@ struct RelaySettingSet {
   }
 
   private getCellValue(cell: RelayCellSpec): string {
-    return this.normalizeCellInputValue(cell, this.readValue(this.scopedValueKey(cell.id), cell.text));
+    return this.readValue(cell.id, cell.text);
   }
 
   private setCellValue(cell: RelayCellSpec, value: string): void {
-    this.writeValue(this.scopedValueKey(cell.id), this.normalizeCellInputValue(cell, value));
+    this.writeValue(cell.id, this.normalizeCellInputValue(cell, value));
   }
 
   private getMonitorFieldValue(field: RelayMonitorFieldSpec): string {
-    return this.normalizeMonitorInputValue(field, this.readValue(this.scopedValueKey(field.id), field.value));
+    return this.readValue(field.id, field.value);
   }
 
   private setMonitorFieldValue(field: RelayMonitorFieldSpec, value: string): void {
-    this.writeValue(this.scopedValueKey(field.id), this.normalizeMonitorInputValue(field, value));
+    this.writeValue(field.id, this.normalizeMonitorInputValue(field, value));
   }
 
   private appendUniqueOption(options: string[], option: string): void {
@@ -1050,30 +1112,7 @@ struct RelaySettingSet {
   }
 
   private defaultSelectOptions(defaultValue: string): string[] {
-    if (defaultValue === '投入' || defaultValue === '退出') {
-      return ['投入', '退出'];
-    }
-    if (defaultValue === '折算' || defaultValue === '不折算') {
-      return ['折算', '不折算'];
-    }
-    if (defaultValue === '跳闸' || defaultValue === '告警') {
-      return ['跳闸', '告警'];
-    }
-    if (defaultValue === '一般反时限' || defaultValue === '非常反时限' || defaultValue === '极端反时限') {
-      return ['一般反时限', '非常反时限', '极端反时限'];
-    }
-    if (defaultValue === '闭锁' || defaultValue === '普通' || defaultValue === '检同期' ||
-      defaultValue === '检线路无压且母有压' || defaultValue === '检线路有压且母无压' ||
-      defaultValue === '检线路无压且母无压' || defaultValue === '检线路无压或母无压') {
-      return ['闭锁', '普通', '检同期', '检线路无压且母有压', '检线路有压且母无压', '检线路无压且母无压', '检线路无压或母无压'];
-    }
-    if (defaultValue === '不重合' || defaultValue === '重合') {
-      return ['不重合', '重合'];
-    }
-    if (defaultValue === '解列' || defaultValue === '减载') {
-      return ['解列', '减载'];
-    }
-    return [defaultValue];
+    return relayDefaultSelectOptions(defaultValue);
   }
 
   private selectOptionsForValue(defaultValue: string, currentValue: string): string[] {
@@ -1138,7 +1177,7 @@ struct RelaySettingSet {
   }
 
   private applySelectOverlayValue(value: string): void {
-    this.writeValue(this.scopedValueKey(this.selectOverlayTargetId), value);
+    this.writeValue(this.selectOverlayTargetId, value);
     this.selectOverlayValue = value;
     this.closeSelectOverlay();
   }
@@ -1406,8 +1445,7 @@ struct RelaySettingSet {
 
   aboutToAppear(): void {
     this.modeInSelected = this.vm.headerMode.inMode.checked;
-    this.currentZoneCode = '1';
-    this.vm.titleRight = '—整定 1 区保护定值';
+    this.syncCurrentZoneState('00');
     try {
       let d = display.getDefaultDisplaySync();
       let sx = d.width / 1024;
@@ -1420,15 +1458,13 @@ struct RelaySettingSet {
 
     try {
       let params = router.getParams() as RouterParams;
-      let zoneCode = params.zoneCode?.trim();
-      if (zoneCode) {
-        this.currentZoneCode = zoneCode;
-        this.vm.titleRight = '—整定 ' + zoneCode + ' 区保护定值';
-      }
+      this.syncCurrentZoneState(params.zoneCode?.trim());
     } catch (e) {
+      this.syncCurrentZoneState();
     }
 
     this.loadValueEntries();
+    this.syncCurrentZoneTitle();
   }
 
   private setMode(isIn: boolean): void {
