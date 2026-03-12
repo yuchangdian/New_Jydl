@@ -1,5 +1,19 @@
 import router from '@ohos.router';
 import display from '@ohos.display';
+import fs from '@ohos.file.fs';
+import {
+  CommonSettingPrimarySystemData,
+  COMMON_SETTING_PRIMARY_SYSTEM_CT_CONNECTION_OPTIONS,
+  COMMON_SETTING_PRIMARY_SYSTEM_LINE_PHASE_OPTIONS,
+  COMMON_SETTING_PRIMARY_SYSTEM_ZERO_CURRENT_OPTIONS,
+  createDefaultCommonSettingPrimarySystemData,
+  deserializeCommonSettingPrimarySystemData,
+  serializeCommonSettingPrimarySystemData
+} from '../models/CommonSettingPrimarySystemData';
+
+interface AbilityFileContext {
+  filesDir: string;
+}
 
 @Observed
 class BottomActionState {
@@ -17,51 +31,60 @@ class CommonSettingPrimarySystemVM {
   timeText: string = '2024/12/30\n12:12:30';
 }
 
+class CommonSettingPrimarySystemFontSize {
+  notice: number = 18;
+  title: number = 20;
+  sectionTitle: number = 18;
+  fieldLabel: number = 18;
+  inputValue: number = 16;
+  fieldUnit: number = 18;
+  dialogTitle: number = 18;
+  dialogBody: number = 18;
+  bottomButton: number = 18;
+  timeText: number = 18;
+  titleMin: number = 14;
+  noticeMin: number = 12;
+  arrow: number = 11;
+  timeLineHeight: number = 20;
+}
+
 @Entry
 @Component
 export struct CommonSetting_PrimarySystem_Set {
   @State vm: CommonSettingPrimarySystemVM = new CommonSettingPrimarySystemVM();
+  @State formData: CommonSettingPrimarySystemData = createDefaultCommonSettingPrimarySystemData();
   @State uiScale: number = 1;
+  @State selectOverlayVisible: boolean = false;
+  @State selectOverlayTitle: string = '';
+  @State selectOverlayFieldKey: string = '';
+  @State selectOverlayValue: string = '';
+  @State selectOverlayOptions: string[] = [];
+  @State feedbackDialogVisible: boolean = false;
+  @State feedbackMessage: string = '';
 
-  @State busPtPrimary: string = '10.0';
-  @State busPtSecondary: string = '100';
-  @State busZeroPtPrimary: string = '10.0';
-  @State busZeroPtSecondary: string = '100';
-  @State linePtPrimary: string = '10.0';
-  @State linePtSecondary: string = '100';
-  @State protectCtPrimary: string = '600';
-  @State protectCtSecondary: string = '5';
-  @State zeroCtPrimary: string = '120';
-  @State zeroCtSecondary: string = '5';
-  @State measureCtPrimary: string = '600';
-  @State measureCtSecondary: string = '5';
-  @State ratedPower: string = '1200';
-
-  @State linePhase: string = 'A相';
-  @State ctConnectionMode: string = '两相式';
-  @State zeroCurrentMode: string = '外部';
-
-  private readonly noticeFontSize: number = 16;
-  private readonly titleLeftFontSize: number = 20;
-  private readonly titleRightFontSize: number = 18;
-  private readonly bodyFontSize: number = 16;
+  private readonly fontSize: CommonSettingPrimarySystemFontSize = new CommonSettingPrimarySystemFontSize();
   private readonly rowHeight: number = 54;
   private readonly separatorSpace: number = 12;
   private readonly separatorStroke: number = 3;
   private readonly inputHeight: number = 35;
   private readonly inputWidth: number = 117;
   private readonly bottomButtonHeight: number = 55;
+  private readonly bottomButtonRadius: number = 12;
   private readonly pageMaxWidth: number = 1155;
   private readonly titleIconSize: number = 24;
   private readonly linePhaseBoxWidth: number = 96;
   private readonly modeBoxWidth: number = 100;
+  private readonly scrollContentRightPadding: number = 78;
   private readonly separatorColor: string = '#9E9E9E';
   private readonly fieldBorderColor: string = '#B8B8B8';
   private readonly fieldBackgroundColor: string = '#FFFFFF';
+  private readonly overlayCardWidth: number = 320;
+  private readonly overlayCardRadius: number = 10;
+  private readonly dataFileName: string = 'common_setting_primary_system.json';
 
-  private readonly linePhaseOptions: string[] = ['A相', 'B相', 'C相', 'AB相', 'CA相', 'BC相', '三相'];
-  private readonly ctConnectionOptions: string[] = ['两相式', '三相式'];
-  private readonly zeroCurrentOptions: string[] = ['外部', '自产'];
+  private readonly linePhaseOptions: string[] = COMMON_SETTING_PRIMARY_SYSTEM_LINE_PHASE_OPTIONS;
+  private readonly ctConnectionOptions: string[] = COMMON_SETTING_PRIMARY_SYSTEM_CT_CONNECTION_OPTIONS;
+  private readonly zeroCurrentOptions: string[] = COMMON_SETTING_PRIMARY_SYSTEM_ZERO_CURRENT_OPTIONS;
 
   private s(v: number): number {
     return Math.round(v * this.uiScale);
@@ -74,39 +97,87 @@ export struct CommonSetting_PrimarySystem_Set {
       let sy = d.height / 600;
       let val = Math.min(sx, sy);
       this.uiScale = val > 0 ? val : 1;
-    } catch (e) {
+    } catch (error) {
       this.uiScale = 1;
     }
+    this.loadPersistedData();
+  }
+
+  private getDataFilePath(): string {
+    let context = getContext(this) as AbilityFileContext;
+    return `${context.filesDir}/${this.dataFileName}`;
+  }
+
+  private loadPersistedData(): void {
+    try {
+      let dataFilePath = this.getDataFilePath();
+      if (!fs.accessSync(dataFilePath)) {
+        return;
+      }
+      let raw = fs.readTextSync(dataFilePath);
+      let restored = deserializeCommonSettingPrimarySystemData(raw);
+      if (restored) {
+        this.formData = restored;
+      }
+    } catch (error) {
+      console.error(`load primary system data failed: ${JSON.stringify(error)}`);
+    }
+  }
+
+  private savePersistedData(): boolean {
+    try {
+      let dataFilePath = this.getDataFilePath();
+      let file = fs.openSync(dataFilePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      try {
+        fs.writeSync(file.fd, serializeCommonSettingPrimarySystemData(this.formData), { encoding: 'utf-8' });
+      } finally {
+        fs.closeSync(file);
+      }
+      return true;
+    } catch (error) {
+      console.error(`save primary system data failed: ${JSON.stringify(error)}`);
+      return false;
+    }
+  }
+
+  private showFeedback(message: string): void {
+    this.feedbackMessage = message;
+    this.feedbackDialogVisible = true;
+  }
+
+  private closeFeedback(): void {
+    this.feedbackDialogVisible = false;
+    this.feedbackMessage = '';
   }
 
   private getInputValue(fieldKey: string): string {
     switch (fieldKey) {
       case 'bus_pt_primary':
-        return this.busPtPrimary;
+        return this.formData.busPtPrimary;
       case 'bus_pt_secondary':
-        return this.busPtSecondary;
+        return this.formData.busPtSecondary;
       case 'bus_zero_pt_primary':
-        return this.busZeroPtPrimary;
+        return this.formData.busZeroPtPrimary;
       case 'bus_zero_pt_secondary':
-        return this.busZeroPtSecondary;
+        return this.formData.busZeroPtSecondary;
       case 'line_pt_primary':
-        return this.linePtPrimary;
+        return this.formData.linePtPrimary;
       case 'line_pt_secondary':
-        return this.linePtSecondary;
+        return this.formData.linePtSecondary;
       case 'protect_ct_primary':
-        return this.protectCtPrimary;
+        return this.formData.protectCtPrimary;
       case 'protect_ct_secondary':
-        return this.protectCtSecondary;
+        return this.formData.protectCtSecondary;
       case 'zero_ct_primary':
-        return this.zeroCtPrimary;
+        return this.formData.zeroCtPrimary;
       case 'zero_ct_secondary':
-        return this.zeroCtSecondary;
+        return this.formData.zeroCtSecondary;
       case 'measure_ct_primary':
-        return this.measureCtPrimary;
+        return this.formData.measureCtPrimary;
       case 'measure_ct_secondary':
-        return this.measureCtSecondary;
+        return this.formData.measureCtSecondary;
       case 'rated_power':
-        return this.ratedPower;
+        return this.formData.ratedPower;
       default:
         return '';
     }
@@ -115,43 +186,43 @@ export struct CommonSetting_PrimarySystem_Set {
   private setInputValue(fieldKey: string, value: string): void {
     switch (fieldKey) {
       case 'bus_pt_primary':
-        this.busPtPrimary = value;
+        this.formData.busPtPrimary = value;
         break;
       case 'bus_pt_secondary':
-        this.busPtSecondary = value;
+        this.formData.busPtSecondary = value;
         break;
       case 'bus_zero_pt_primary':
-        this.busZeroPtPrimary = value;
+        this.formData.busZeroPtPrimary = value;
         break;
       case 'bus_zero_pt_secondary':
-        this.busZeroPtSecondary = value;
+        this.formData.busZeroPtSecondary = value;
         break;
       case 'line_pt_primary':
-        this.linePtPrimary = value;
+        this.formData.linePtPrimary = value;
         break;
       case 'line_pt_secondary':
-        this.linePtSecondary = value;
+        this.formData.linePtSecondary = value;
         break;
       case 'protect_ct_primary':
-        this.protectCtPrimary = value;
+        this.formData.protectCtPrimary = value;
         break;
       case 'protect_ct_secondary':
-        this.protectCtSecondary = value;
+        this.formData.protectCtSecondary = value;
         break;
       case 'zero_ct_primary':
-        this.zeroCtPrimary = value;
+        this.formData.zeroCtPrimary = value;
         break;
       case 'zero_ct_secondary':
-        this.zeroCtSecondary = value;
+        this.formData.zeroCtSecondary = value;
         break;
       case 'measure_ct_primary':
-        this.measureCtPrimary = value;
+        this.formData.measureCtPrimary = value;
         break;
       case 'measure_ct_secondary':
-        this.measureCtSecondary = value;
+        this.formData.measureCtSecondary = value;
         break;
       case 'rated_power':
-        this.ratedPower = value;
+        this.formData.ratedPower = value;
         break;
       default:
         break;
@@ -161,11 +232,11 @@ export struct CommonSetting_PrimarySystem_Set {
   private getSelectValue(fieldKey: string): string {
     switch (fieldKey) {
       case 'line_phase':
-        return this.linePhase;
+        return this.formData.linePhase;
       case 'ct_connection':
-        return this.ctConnectionMode;
+        return this.formData.ctConnectionMode;
       case 'zero_current_mode':
-        return this.zeroCurrentMode;
+        return this.formData.zeroCurrentMode;
       default:
         return '';
     }
@@ -174,13 +245,13 @@ export struct CommonSetting_PrimarySystem_Set {
   private setSelectValue(fieldKey: string, value: string): void {
     switch (fieldKey) {
       case 'line_phase':
-        this.linePhase = value;
+        this.formData.linePhase = value;
         break;
       case 'ct_connection':
-        this.ctConnectionMode = value;
+        this.formData.ctConnectionMode = value;
         break;
       case 'zero_current_mode':
-        this.zeroCurrentMode = value;
+        this.formData.zeroCurrentMode = value;
         break;
       default:
         break;
@@ -211,64 +282,102 @@ export struct CommonSetting_PrimarySystem_Set {
     this.setSelectValue(fieldKey, options[nextIndex]);
   }
 
+  private shouldOpenSelectOverlay(fieldKey: string): boolean {
+    return fieldKey === 'line_phase' || fieldKey === 'ct_connection';
+  }
+
+  private openSelectOverlay(fieldKey: string, title: string): void {
+    this.selectOverlayFieldKey = fieldKey;
+    this.selectOverlayTitle = title.endsWith(':') ? title.substring(0, title.length - 1) : title;
+    this.selectOverlayValue = this.getSelectValue(fieldKey);
+    this.selectOverlayOptions = this.getSelectOptions(fieldKey).slice();
+    this.selectOverlayVisible = true;
+  }
+
+  private closeSelectOverlay(): void {
+    this.selectOverlayVisible = false;
+    this.selectOverlayFieldKey = '';
+    this.selectOverlayTitle = '';
+  }
+
+  private applySelectOverlayValue(value: string): void {
+    if (this.selectOverlayFieldKey.length > 0) {
+      this.setSelectValue(this.selectOverlayFieldKey, value);
+    }
+    this.selectOverlayValue = value;
+    this.closeSelectOverlay();
+  }
+
+  private handleSelectFieldClick(fieldKey: string, label: string): void {
+    if (this.shouldOpenSelectOverlay(fieldKey)) {
+      this.openSelectOverlay(fieldKey, label);
+      return;
+    }
+    this.cycleSelectValue(fieldKey);
+  }
+
   private resetDefaults(): void {
-    this.busPtPrimary = '10.0';
-    this.busPtSecondary = '100';
-    this.busZeroPtPrimary = '10.0';
-    this.busZeroPtSecondary = '100';
-    this.linePtPrimary = '10.0';
-    this.linePtSecondary = '100';
-    this.protectCtPrimary = '600';
-    this.protectCtSecondary = '5';
-    this.zeroCtPrimary = '120';
-    this.zeroCtSecondary = '5';
-    this.measureCtPrimary = '600';
-    this.measureCtSecondary = '5';
-    this.ratedPower = '1200';
-    this.linePhase = this.linePhaseOptions[0];
-    this.ctConnectionMode = this.ctConnectionOptions[0];
-    this.zeroCurrentMode = this.zeroCurrentOptions[0];
+    this.formData = createDefaultCommonSettingPrimarySystemData();
+  }
+
+  private submitCurrentData(): void {
+    let saveSuccess = this.savePersistedData();
+    this.showFeedback(saveSuccess ? '提交成功' : '提交失败');
   }
 
   build() {
-    Column() {
+    Stack({ alignContent: Alignment.TopStart }) {
       Column() {
-        this.HeaderBar();
+        Column() {
+          this.HeaderBar();
 
-        Scroll() {
-          Column() {
-            this.StandardRatedRow('母线PT', 'bus_pt_primary', 'kV', 'bus_pt_secondary', 'V');
-            this.SeparatorRow();
-            this.StandardRatedRow('母线零序PT', 'bus_zero_pt_primary', 'kV', 'bus_zero_pt_secondary', 'V');
-            this.SeparatorRow();
-            this.LinePtRow();
-            this.SeparatorRow();
-            this.StandardRatedRow('保护CT', 'protect_ct_primary', 'A', 'protect_ct_secondary', 'A');
-            this.SeparatorRow();
-            this.StandardRatedRow('零序CT', 'zero_ct_primary', 'A', 'zero_ct_secondary', 'A');
-            this.SeparatorRow();
-            this.StandardRatedRow('测量CT', 'measure_ct_primary', 'A', 'measure_ct_secondary', 'A');
-            this.SeparatorRow();
-            this.ModeAndCapacityRow();
-            Blank().height(this.s(200));
+          Scroll() {
+            Column() {
+              this.StandardRatedRow('母线PT', 'bus_pt_primary', 'kV', 'bus_pt_secondary', 'V');
+              this.SeparatorRow();
+              this.StandardRatedRow('母线零序PT', 'bus_zero_pt_primary', 'kV', 'bus_zero_pt_secondary', 'V');
+              this.SeparatorRow();
+              this.LinePtRow();
+              this.SeparatorRow();
+              this.StandardRatedRow('保护CT', 'protect_ct_primary', 'A', 'protect_ct_secondary', 'A');
+              this.SeparatorRow();
+              this.StandardRatedRow('零序CT', 'zero_ct_primary', 'A', 'zero_ct_secondary', 'A');
+              this.SeparatorRow();
+              this.StandardRatedRow('测量CT', 'measure_ct_primary', 'A', 'measure_ct_secondary', 'A');
+              this.SeparatorRow();
+              this.ModeAndCapacityRow();
+              Blank().height(this.s(200));
+            }
+            .width('100%')
+            .padding({ right: this.s(this.scrollContentRightPadding) })
+            .constraintSize({ minHeight: this.s(700) });
           }
+          .layoutWeight(1)
           .width('100%')
-          .constraintSize({ minHeight: this.s(700) });
-        }
-        .layoutWeight(1)
-        .width('100%')
-        .backgroundColor('#FFFFFF');
+          .backgroundColor('#FFFFFF');
 
-        this.BottomBar();
+          this.BottomBar();
+        }
+        .width('100%')
+        .height('100%')
+        .constraintSize({ maxWidth: this.s(this.pageMaxWidth) })
+        .backgroundColor('#FFFFFF');
       }
       .width('100%')
       .height('100%')
-      .constraintSize({ maxWidth: this.s(this.pageMaxWidth) })
+      .alignItems(HorizontalAlign.Center)
       .backgroundColor('#FFFFFF');
+
+      if (this.selectOverlayVisible) {
+        this.SelectOverlay();
+      }
+
+      if (this.feedbackDialogVisible) {
+        this.FeedbackOverlay();
+      }
     }
     .width('100%')
     .height('100%')
-    .alignItems(HorizontalAlign.Center)
     .backgroundColor('#FFFFFF');
   }
 
@@ -277,16 +386,17 @@ export struct CommonSetting_PrimarySystem_Set {
     Row() {
       Text(this.vm.noticeText)
         .layoutWeight(8)
-        .minFontSize(12)
+        .minFontSize(this.s(this.fontSize.noticeMin))
         .maxLines(1)
-        .fontSize(this.s(this.noticeFontSize))
+        .fontSize(this.s(this.fontSize.notice))
         .fontColor('#EF2929')
         .fontFamily('STKaiti')
         .textAlign(TextAlign.Center);
 
       Text(this.vm.titleLeft)
         .layoutWeight(3)
-        .fontSize(this.s(this.titleLeftFontSize))
+        .minFontSize(this.s(this.fontSize.titleMin))
+        .fontSize(this.s(this.fontSize.title))
         .fontWeight(FontWeight.Bold)
         .fontColor('#000000')
         .fontFamily('sans-serif-condensed')
@@ -294,7 +404,8 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Text(this.vm.titleRight)
         .layoutWeight(8)
-        .fontSize(this.s(this.titleRightFontSize))
+        .minFontSize(this.s(this.fontSize.titleMin))
+        .fontSize(this.s(this.fontSize.title))
         .fontColor('#000000')
         .fontFamily('STKaiti')
         .textAlign(TextAlign.Start);
@@ -390,7 +501,6 @@ export struct CommonSetting_PrimarySystem_Set {
     }
     .width('100%')
     .height(this.s(this.rowHeight))
-    .padding({ right: this.s(50) })
     .alignItems(VerticalAlign.Center);
   }
 
@@ -404,7 +514,7 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Text(title)
         .layoutWeight(1)
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.sectionTitle))
         .fontWeight(FontWeight.Bold)
         .fontColor('#000000')
         .fontFamily('Ubuntu')
@@ -421,7 +531,7 @@ export struct CommonSetting_PrimarySystem_Set {
   RatedFieldBlock(label: string, fieldKey: string, unit: string, blockWeight: number) {
     Row() {
       Text(label)
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.fieldLabel))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .maxLines(1)
@@ -431,7 +541,7 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Text(unit)
         .width(this.s(28))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.fieldUnit))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .textAlign(TextAlign.Center)
@@ -448,7 +558,7 @@ export struct CommonSetting_PrimarySystem_Set {
       TextInput({ text: this.getInputValue(fieldKey), placeholder: '' })
         .layoutWeight(1)
         .height('100%')
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.inputValue))
         .fontColor('#111111')
         .fontFamily('Ubuntu')
         .backgroundColor(this.fieldBackgroundColor)
@@ -471,13 +581,13 @@ export struct CommonSetting_PrimarySystem_Set {
   SelectFieldBlock(label: string, fieldKey: string, blockWeight: number, boxWidth: number) {
     Row() {
       Text(label)
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.fieldLabel))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .maxLines(1)
         .margin({ right: this.s(6) });
 
-      this.ComboField(fieldKey, boxWidth);
+      this.ComboField(label, fieldKey, boxWidth);
     }
     .layoutWeight(blockWeight)
     .height('100%')
@@ -485,11 +595,11 @@ export struct CommonSetting_PrimarySystem_Set {
   }
 
   @Builder
-  ComboField(fieldKey: string, boxWidth: number) {
+  ComboField(label: string, fieldKey: string, boxWidth: number) {
     Row() {
       Text(this.getSelectValue(fieldKey))
         .layoutWeight(1)
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.inputValue))
         .fontColor('#111111')
         .fontFamily('Ubuntu')
         .maxLines(1)
@@ -498,7 +608,7 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Text('▼')
         .width(this.s(14))
-        .fontSize(this.s(11))
+        .fontSize(this.s(this.fontSize.arrow))
         .fontColor('#111111')
         .textAlign(TextAlign.Center)
         .margin({ left: this.s(4) });
@@ -511,7 +621,7 @@ export struct CommonSetting_PrimarySystem_Set {
     .borderRadius(0)
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
-      this.cycleSelectValue(fieldKey);
+      this.handleSelectFieldClick(fieldKey, label);
     });
   }
 
@@ -519,7 +629,7 @@ export struct CommonSetting_PrimarySystem_Set {
   CapacityFieldBlock() {
     Row() {
       Text('线路额定容量')
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.fieldLabel))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .margin({ right: this.s(8) });
@@ -528,7 +638,7 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Text('kVA')
         .width(this.s(38))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.fieldUnit))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .textAlign(TextAlign.Center)
@@ -540,6 +650,123 @@ export struct CommonSetting_PrimarySystem_Set {
   }
 
   @Builder
+  SelectOverlay() {
+    Stack() {
+      Row() {
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#55000000')
+      .onClick(() => {
+        this.closeSelectOverlay();
+      });
+
+      Column() {
+        Text(this.selectOverlayTitle)
+          .width('100%')
+          .fontSize(this.s(this.fontSize.dialogTitle))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+          .fontFamily('STKaiti')
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: this.s(10) });
+
+        ForEach(this.selectOverlayOptions, (option: string) => {
+          Button() {
+            Text(option)
+              .fontSize(this.s(this.fontSize.dialogBody))
+              .fontColor('#000000')
+              .fontFamily('STKaiti');
+          }
+          .width('100%')
+          .height(this.s(42))
+          .margin({ bottom: this.s(6) })
+          .backgroundColor(option === this.selectOverlayValue ? '#D9E9F8' : '#FFFFFF')
+          .border({ width: 1, color: option === this.selectOverlayValue ? '#7A9CC0' : '#BEBEBE' })
+          .borderRadius(this.s(6))
+          .onClick(() => {
+            this.applySelectOverlayValue(option);
+          });
+        }, (option: string) => option)
+
+        Button('取消')
+          .width('100%')
+          .height(this.s(40))
+          .margin({ top: this.s(4) })
+          .fontSize(this.s(this.fontSize.dialogBody))
+          .fontColor('#000000')
+          .fontFamily('STKaiti')
+          .backgroundColor('#E5E5E5')
+          .border({ width: 0 })
+          .borderRadius(this.s(6))
+          .onClick(() => {
+            this.closeSelectOverlay();
+          });
+      }
+      .width(this.s(this.overlayCardWidth))
+      .padding({ left: this.s(14), right: this.s(14), top: this.s(14), bottom: this.s(14) })
+      .backgroundColor('#F7F7F7')
+      .border({ width: 1, color: '#D2D2D2' })
+      .borderRadius(this.s(this.overlayCardRadius));
+    }
+    .width('100%')
+    .height('100%');
+  }
+
+  @Builder
+  FeedbackOverlay() {
+    Stack() {
+      Row() {
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#55000000')
+      .onClick(() => {
+        this.closeFeedback();
+      });
+
+      Column() {
+        Text('提示')
+          .width('100%')
+          .fontSize(this.s(this.fontSize.dialogTitle))
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#000000')
+          .fontFamily('STKaiti')
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: this.s(10) });
+
+        Text(this.feedbackMessage)
+          .width('100%')
+          .fontSize(this.s(this.fontSize.dialogBody))
+          .fontColor('#000000')
+          .fontFamily('STKaiti')
+          .textAlign(TextAlign.Center)
+          .margin({ bottom: this.s(18) });
+
+        Button('确定')
+          .width('100%')
+          .height(this.s(40))
+          .fontSize(this.s(this.fontSize.dialogBody))
+          .fontColor('#000000')
+          .fontFamily('STKaiti')
+          .backgroundColor('#E5E5E5')
+          .border({ width: 0 })
+          .borderRadius(this.s(8))
+          .onClick(() => {
+            this.closeFeedback();
+          });
+      }
+      .width(this.s(280))
+      .padding({ left: this.s(16), right: this.s(16), top: this.s(16), bottom: this.s(16) })
+      .backgroundColor('#F7F7F7')
+      .border({ width: 1, color: '#D2D2D2' })
+      .borderRadius(this.s(this.overlayCardRadius));
+    }
+    .width('100%')
+    .height('100%');
+  }
+
+  @Builder
   BottomBar() {
     Row() {
       Blank().layoutWeight(5);
@@ -547,13 +774,13 @@ export struct CommonSetting_PrimarySystem_Set {
       Button(this.vm.actions.defaultText)
         .layoutWeight(20)
         .height(this.s(this.bottomButtonHeight))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.bottomButton))
         .fontColor('#000000')
         .fontFamily('sans-serif-condensed')
         .fontWeight(FontWeight.Bold)
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
-        .borderRadius(0)
+        .borderRadius(this.s(this.bottomButtonRadius))
         .padding(0)
         .onClick(() => {
           this.resetDefaults();
@@ -564,25 +791,28 @@ export struct CommonSetting_PrimarySystem_Set {
       Button(this.vm.actions.submitText)
         .layoutWeight(20)
         .height(this.s(this.bottomButtonHeight))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.bottomButton))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
-        .borderRadius(0)
-        .padding(0);
+        .borderRadius(this.s(this.bottomButtonRadius))
+        .padding(0)
+        .onClick(() => {
+          this.submitCurrentData();
+        });
 
       Blank().layoutWeight(10);
 
       Button(this.vm.actions.backText)
         .layoutWeight(20)
         .height(this.s(this.bottomButtonHeight))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.bottomButton))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
-        .borderRadius(0)
+        .borderRadius(this.s(this.bottomButtonRadius))
         .padding(0)
         .onClick(() => {
           router.back();
@@ -593,10 +823,10 @@ export struct CommonSetting_PrimarySystem_Set {
       Text(this.vm.timeText)
         .layoutWeight(20)
         .height(this.s(this.bottomButtonHeight))
-        .fontSize(this.s(this.bodyFontSize))
+        .fontSize(this.s(this.fontSize.timeText))
         .fontColor('#000000')
         .fontFamily('STKaiti')
-        .lineHeight(this.s(18))
+        .lineHeight(this.s(this.fontSize.timeLineHeight))
         .textAlign(TextAlign.Center);
     }
     .width('100%')

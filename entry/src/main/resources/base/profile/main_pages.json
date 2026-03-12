@@ -6,6 +6,7 @@
     "pages/RelaySettingDisp",
     "pages/RelaySetting_DispSelect",
     "pages/RelaySettingSet",
-    "pages/RelaySetting_SetSelect"
+    "pages/RelaySetting_SetSelect",
+    "pages/CommonSetting_PrimarySystem_Set"
   ]
 }

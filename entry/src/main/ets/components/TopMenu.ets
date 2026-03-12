@@ -59,6 +59,10 @@ export struct TopMenu {
   }
 
   private handleLeafClick(item: MenuSubItem, subItem: SubMenuItem): void {
+    if (item.title === '\u4e00\u6b21\u7cfb\u7edf' && subItem.title === '\u6574\u5b9a') {
+      this.openPage('pages/CommonSetting_PrimarySystem_Set');
+      return;
+    }
     if (item.title === '\u4fdd\u62a4\u5b9a\u503c' && subItem.title === '\u6d4f\u89c8') {
       this.openPage('pages/RelaySetting_DispSelect');
       return;

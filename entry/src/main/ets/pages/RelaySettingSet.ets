@@ -79,6 +79,12 @@ class RelayCellSpec {
   bindingIndex: number = -1;
   labelText: string = '请选择';
   unitText: string = '';
+  labelMinWidth: number = 0;
+  valueMinWidth: number = 0;
+  selectMinWidth: number = 0;
+  unitMinWidth: number = 0;
+  unitLeftMargin: number = 0;
+  inputFontFamily: string = 'monospace';
 
   constructor(id: string, kind: string, text: string, weight: number) {
     this.id = id;
@@ -136,6 +142,8 @@ class RelayMonitorFieldSpec {
   kind: string;
   boxWidth: number;
   bindingIndex: number = -1;
+  resolvedBoxWidth: number = 0;
+  inputFontFamily: string = 'monospace';
 
   constructor(
     id: string,
@@ -727,6 +735,269 @@ const RELAY_FIELD_BINDINGS: RelayFieldBinding[] = buildRelayFieldBindings(RELAY_
 const RELAY_BOUND_MAIN_CELLS: RelayCellSpec[] = [];
 const RELAY_BOUND_MONITOR_FIELDS: RelayMonitorFieldSpec[] = [];
 
+function relayLabelCellMinWidth(text: string): number {
+  if (text.length >= 18) {
+    return 248;
+  }
+  if (text.length >= 14) {
+    return 210;
+  }
+  if (text.length >= 10) {
+    return 178;
+  }
+  if (text.length >= 8) {
+    return 158;
+  }
+  if (text.length >= 6) {
+    return 126;
+  }
+  if (text.length >= 4) {
+    return 104;
+  }
+  return 76;
+}
+
+function relayIsRightEdgeTimeCell(cellId: string): boolean {
+  return cellId.indexOf('section-10-row-02-item-03-cell-') === 0 ||
+    cellId.indexOf('section-11-row-02-item-05-cell-') === 0 ||
+    cellId.indexOf('section-12-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-13-row-03-item-05-cell-') === 0 ||
+    cellId.indexOf('section-14-row-02-item-03-cell-') === 0 ||
+    cellId.indexOf('section-15-row-02-item-03-cell-') === 0 ||
+    cellId.indexOf('section-16-row-02-item-03-cell-') === 0 ||
+    cellId.indexOf('section-17-row-02-item-05-cell-') === 0 ||
+    cellId.indexOf('section-18-row-03-item-03-cell-') === 0 ||
+    cellId.indexOf('section-21-row-02-item-03-cell-') === 0 ||
+    cellId.indexOf('section-22-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-23-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-24-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-25-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-26-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-27-row-01-item-07-cell-') === 0 ||
+    cellId.indexOf('section-28-row-01-item-07-cell-') === 0;
+}
+
+function relayIsRightEdgeWideUnitCell(cellId: string): boolean {
+  return cellId.indexOf('section-20-row-03-item-03-cell-') === 0 ||
+    cellId.indexOf('section-20-row-03-item-05-cell-') === 0 ||
+    cellId.indexOf('section-22-row-02-item-05-cell-') === 0 ||
+    cellId.indexOf('section-22-row-03-item-05-cell-') === 0 ||
+    cellId.indexOf('section-24-row-02-item-05-cell-') === 0 ||
+    cellId.indexOf('section-24-row-03-item-05-cell-') === 0;
+}
+
+function relayUnitMinWidthForCell(cell: RelayCellSpec): number {
+  if (relayIsRightEdgeTimeCell(cell.id)) {
+    return cell.text.length >= 2 ? 12 : 10;
+  }
+  if (relayIsRightEdgeWideUnitCell(cell.id)) {
+    return cell.text.length >= 4 ? 28 : 20;
+  }
+  if (cell.id.indexOf('section-01-row-') === 0) {
+    return 28;
+  }
+  if (cell.text.length >= 4) {
+    return 30;
+  }
+  if (cell.text.length >= 3) {
+    return 26;
+  }
+  if (cell.text.length >= 2) {
+    return 20;
+  }
+  return 16;
+}
+
+function relayUnitLeftMarginForCell(cell: RelayCellSpec): number {
+  if (cell.id.indexOf('section-01-row-01-item-06-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-01-item-10-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-02-item-03-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-02-item-07-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-02-item-11-cell-01') === 0) {
+    return 18;
+  }
+  if (cell.id.indexOf('section-05-row-01-item-05-cell-03') === 0 ||
+    cell.id.indexOf('section-05-row-01-item-07-cell-03') === 0 ||
+    cell.id.indexOf('section-06-row-01-item-05-cell-03') === 0 ||
+    cell.id.indexOf('section-06-row-01-item-07-cell-03') === 0) {
+    return 0;
+  }
+  if (cell.id.indexOf('section-01-row-') === 0) {
+    return 8;
+  }
+  if (relayIsRightEdgeTimeCell(cell.id)) {
+    return 0;
+  }
+  if (relayIsRightEdgeWideUnitCell(cell.id)) {
+    return 1;
+  }
+  return 2;
+}
+
+function relaySelectCellMinWidth(text: string): number {
+  if (text.length >= 16) {
+    return 204;
+  }
+  if (text.length >= 12) {
+    return 176;
+  }
+  if (text.length >= 8) {
+    return 144;
+  }
+  if (text.length >= 5) {
+    return 112;
+  }
+  if (text.length >= 3) {
+    return 82;
+  }
+  return 64;
+}
+
+function relayValueCellMinWidth(text: string): number {
+  if (text.length >= 18) {
+    return 228;
+  }
+  if (text.length >= 12) {
+    return 188;
+  }
+  if (text.length >= 9) {
+    return 144;
+  }
+  if (text.length >= 6) {
+    return 116;
+  }
+  return 92;
+}
+
+function relayLabelMinWidthForCell(cell: RelayCellSpec): number {
+  if (cell.id.indexOf('section-01-row-01-item-04-cell-01') === 0) {
+    return 164;
+  }
+  if (cell.id.indexOf('section-01-row-01-item-08-cell-01') === 0) {
+    return 154;
+  }
+  if (cell.id.indexOf('section-05-row-01-item-05-cell-01') === 0 || cell.id.indexOf('section-06-row-01-item-05-cell-01') === 0) {
+    return 82;
+  }
+  if (cell.id.indexOf('section-05-row-01-item-07-cell-01') === 0 || cell.id.indexOf('section-06-row-01-item-07-cell-01') === 0) {
+    return 110;
+  }
+  if (cell.id.indexOf('section-07-row-01-item-01-cell-01') === 0) {
+    return 124;
+  }
+  if (cell.id.indexOf('section-07-row-01-item-03-cell-01') === 0) {
+    return 152;
+  }
+  if (cell.id.indexOf('section-11-row-02-item-05-cell-01') === 0 || cell.id.indexOf('section-17-row-02-item-05-cell-01') === 0) {
+    return 122;
+  }
+  if (cell.id.indexOf('section-13-row-03-item-05-cell-01') === 0) {
+    return 90;
+  }
+  if (cell.id.indexOf('section-21-row-02-item-03-cell-01') === 0) {
+    return 96;
+  }
+  if (cell.id.indexOf('section-20-row-03-item-03-cell-01') === 0 || cell.id.indexOf('section-20-row-03-item-05-cell-01') === 0) {
+    return 126;
+  }
+  if (cell.id.indexOf('section-22-row-02-item-05-cell-01') === 0 || cell.id.indexOf('section-24-row-02-item-05-cell-01') === 0) {
+    return 128;
+  }
+  if (cell.id.indexOf('section-22-row-03-item-05-cell-01') === 0 || cell.id.indexOf('section-24-row-03-item-05-cell-01') === 0) {
+    return 118;
+  }
+  if (relayIsRightEdgeTimeCell(cell.id)) {
+    return 86;
+  }
+  if (cell.id.indexOf('section-19-row-01-item-03-cell-01') === 0 || cell.id.indexOf('section-19-row-01-item-05-cell-01') === 0) {
+    return 98;
+  }
+  if (cell.id.indexOf('section-19-row-02-') === 0) {
+    return cell.text.length >= 8 ? 104 : 88;
+  }
+  if (cell.id.indexOf('section-19-row-03-item-01-cell-01') === 0) {
+    return 150;
+  }
+  if (cell.id.indexOf('section-19-row-03-item-03-cell-01') === 0) {
+    return 192;
+  }
+  if (cell.id.indexOf('section-19-row-03-') === 0) {
+    return 116;
+  }
+  return relayLabelCellMinWidth(cell.text);
+}
+
+function relaySelectMinWidthForCell(cell: RelayCellSpec): number {
+  if (cell.id.indexOf('section-19-row-02-') === 0 || cell.id.indexOf('section-19-row-03-') === 0) {
+    return 64;
+  }
+  return relaySelectCellMinWidth(cell.text);
+}
+
+function relayValueMinWidthForCell(cell: RelayCellSpec): number {
+  if (cell.id.indexOf('section-01-row-01-item-05-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-01-item-09-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-02-item-06-cell-01') === 0 ||
+    cell.id.indexOf('section-01-row-02-item-10-cell-01') === 0) {
+    return 76;
+  }
+  if (cell.id.indexOf('section-01-row-02-item-02-cell-01') === 0) {
+    return 80;
+  }
+  if (cell.id.indexOf('section-07-row-01-item-01-cell-03') === 0 || cell.id.indexOf('section-07-row-01-item-03-cell-03') === 0) {
+    return 72;
+  }
+  if (cell.id.indexOf('section-05-row-01-item-05-cell-02') === 0 ||
+    cell.id.indexOf('section-05-row-01-item-07-cell-02') === 0 ||
+    cell.id.indexOf('section-06-row-01-item-05-cell-02') === 0 ||
+    cell.id.indexOf('section-06-row-01-item-07-cell-02') === 0) {
+    return 74;
+  }
+  if (cell.id.indexOf('section-11-row-02-item-05-cell-02') === 0 || cell.id.indexOf('section-17-row-02-item-05-cell-02') === 0) {
+    return 74;
+  }
+  if (cell.id.indexOf('section-13-row-03-item-05-cell-02') === 0) {
+    return 72;
+  }
+  if (cell.id.indexOf('section-20-row-03-item-03-cell-02') === 0 || cell.id.indexOf('section-20-row-03-item-05-cell-02') === 0) {
+    return 78;
+  }
+  if (cell.id.indexOf('section-21-row-02-item-03-cell-02') === 0) {
+    return 82;
+  }
+  if (cell.id.indexOf('section-22-row-02-item-05-cell-02') === 0 || cell.id.indexOf('section-24-row-02-item-05-cell-02') === 0) {
+    return 74;
+  }
+  if (cell.id.indexOf('section-22-row-03-item-05-cell-02') === 0 || cell.id.indexOf('section-24-row-03-item-05-cell-02') === 0) {
+    return 78;
+  }
+  if (relayIsRightEdgeTimeCell(cell.id)) {
+    return 78;
+  }
+  if (cell.id.indexOf('section-19-row-01-item-01-cell-02') === 0 ||
+    cell.id.indexOf('section-19-row-01-item-03-cell-02') === 0 ||
+    cell.id.indexOf('section-19-row-01-item-03-cell-04') === 0 ||
+    cell.id.indexOf('section-19-row-01-item-05-cell-02') === 0 ||
+    cell.id.indexOf('section-19-row-01-item-05-cell-04') === 0) {
+    return 76;
+  }
+  return relayValueCellMinWidth(cell.text);
+}
+
+function relayPrepareCellLayout(cell: RelayCellSpec): void {
+  cell.labelMinWidth = relayLabelMinWidthForCell(cell);
+  cell.valueMinWidth = relayValueMinWidthForCell(cell);
+  cell.selectMinWidth = relaySelectMinWidthForCell(cell);
+  cell.unitMinWidth = relayUnitMinWidthForCell(cell);
+  cell.unitLeftMargin = relayUnitLeftMarginForCell(cell);
+  cell.inputFontFamily = cell.text.indexOf(':') !== -1 ? 'sans-serif' : 'monospace';
+}
+
+function relayPrepareMonitorFieldLayout(field: RelayMonitorFieldSpec): void {
+  field.resolvedBoxWidth = field.boxWidth;
+  field.inputFontFamily = 'monospace';
+}
+
 function relayBindFieldSpecs(): void {
   for (let sectionIndex = 0; sectionIndex < RELAY_MAIN_SECTIONS.length; sectionIndex++) {
     let section = RELAY_MAIN_SECTIONS[sectionIndex];
@@ -736,6 +1007,7 @@ function relayBindFieldSpecs(): void {
         let item = row.items[itemIndex];
         for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
           let cell = item.cells[cellIndex];
+          relayPrepareCellLayout(cell);
           if (cell.kind !== 'input' && cell.kind !== 'select') {
             continue;
           }
@@ -756,6 +1028,7 @@ function relayBindFieldSpecs(): void {
     let section = RELAY_MONITOR_SECTIONS[sectionIndex];
     for (let fieldIndex = 0; fieldIndex < section.fields.length; fieldIndex++) {
       let field = section.fields[fieldIndex];
+      relayPrepareMonitorFieldLayout(field);
       let binding = relayFindFieldBinding(RELAY_FIELD_BINDINGS, field.id);
       if (!binding) {
         continue;
@@ -992,6 +1265,17 @@ struct RelaySettingSet {
     return defaultStore;
   }
 
+  private tryPrepareCurrentZoneFromSession(): boolean {
+    let nextStore = relayLoadProfilesStoreFromSession(this.relaySettingProfilesStore, RELAY_FIELD_BINDINGS);
+    if (!nextStore) {
+      return false;
+    }
+    this.profilesStore = nextStore;
+    this.rebuildCurrentZoneCache();
+    this.isLoading = false;
+    return true;
+  }
+
   private saveValueEntries(noticeText: string = ''): void {
     if (this.isLoading) {
       return;
@@ -1063,7 +1347,7 @@ struct RelaySettingSet {
   private resolveBindingWidth(bindingIndex: number, displayValue: string): number {
     let cell = RELAY_BOUND_MAIN_CELLS[bindingIndex];
     if (cell && cell.kind === 'select') {
-      let defaultWidth = this.selectMinWidthForCell(cell);
+      let defaultWidth = cell.selectMinWidth;
       let dynamicWidth = this.selectCellMinWidth(displayValue);
       return dynamicWidth > defaultWidth ? dynamicWidth : defaultWidth;
     }
@@ -1076,7 +1360,7 @@ struct RelaySettingSet {
     let minWidth = field.kind === 'select'
       ? this.selectCellMinWidth(displayValue)
       : this.valueCellMinWidth(displayValue);
-    return field.boxWidth > minWidth ? field.boxWidth : minWidth;
+    return field.resolvedBoxWidth > minWidth ? field.resolvedBoxWidth : minWidth;
   }
 
   private rebuildCurrentZoneCache(): void {
@@ -1485,23 +1769,38 @@ struct RelaySettingSet {
   }
 
   private monitorFieldBoxWidth(field: RelayMonitorFieldSpec): number {
-    return this.widthAtBindingIndex(field.bindingIndex, field.boxWidth);
+    return this.widthAtBindingIndex(field.bindingIndex, field.resolvedBoxWidth);
   }
 
   private selectBoxMinWidth(cell: RelayCellSpec): number {
-    return this.widthAtBindingIndex(cell.bindingIndex, this.selectMinWidthForCell(cell));
+    return this.widthAtBindingIndex(cell.bindingIndex, cell.selectMinWidth);
   }
 
   private prepareCurrentZone(loadToken: number): void {
-    let nextStore = this.loadProfilesStore();
     if (loadToken !== this.loadToken) {
       return;
     }
-    this.profilesStore = nextStore;
-    this.rebuildCurrentZoneCache();
-    this.isLoading = false;
-  }
 
+    try {
+      let nextStore = this.loadProfilesStore();
+      if (loadToken !== this.loadToken) {
+        return;
+      }
+      this.profilesStore = nextStore;
+      this.rebuildCurrentZoneCache();
+    } catch (e) {
+      if (loadToken !== this.loadToken) {
+        return;
+      }
+      this.profilesStore = createDefaultRelaySettingProfilesStore(RELAY_FIELD_BINDINGS);
+      this.rebuildCurrentZoneCache();
+      this.vm.noticeText = '';
+    } finally {
+      if (loadToken === this.loadToken) {
+        this.isLoading = false;
+      }
+    }
+  }
   aboutToAppear(): void {
     this.loadToken++;
     this.modeInSelected = this.vm.headerMode.inMode.checked;
@@ -1527,6 +1826,10 @@ struct RelaySettingSet {
       this.syncCurrentZoneState(params.zoneCode?.trim());
     } catch (e) {
       this.syncCurrentZoneState();
+    }
+
+    if (this.tryPrepareCurrentZoneFromSession()) {
+      return;
     }
 
     let currentLoadToken = this.loadToken;
@@ -1555,19 +1858,20 @@ struct RelaySettingSet {
         if (this.isLoading) {
           this.LoadingBody();
         } else {
-          Scroll() {
-            Column() {
-              ForEach(RELAY_MAIN_SECTIONS, (section: RelaySectionSpec) => {
+          List() {
+            ForEach(RELAY_MAIN_SECTIONS, (section: RelaySectionSpec) => {
+              ListItem() {
                 this.SectionCard(section);
-              }, (section: RelaySectionSpec) => section.id)
+              }
+            }, (section: RelaySectionSpec) => section.id)
 
-              // this.MonitorSections();
+            ListItem() {
+              this.MonitorSections();
             }
-            .width('100%')
-            .padding({ left: this.s(10), right: this.s(16), top: this.s(5), bottom: this.s(7) });
           }
           .layoutWeight(1)
           .width('100%')
+          .padding({ left: this.s(10), right: this.s(16), top: this.s(5), bottom: this.s(7) })
           .backgroundColor('#FFFFFF');
         }
 
@@ -1582,7 +1886,6 @@ struct RelaySettingSet {
     .height('100%')
     .backgroundColor('#FFFFFF');
   }
-
   @Builder
   LoadingBody() {
     Column() {
@@ -1749,7 +2052,7 @@ struct RelaySettingSet {
     } else if (cell.kind === 'label') {
       Text(cell.text)
         .layoutWeight(cell.weight)
-        .constraintSize({ minWidth: this.s(this.labelMinWidthForCell(cell)) })
+        .constraintSize({ minWidth: this.s(cell.labelMinWidth) })
         .fontSize(this.s(this.fieldLabelFontSize))
         .minFontSize(this.s(this.fieldMinFontSize))
         .fontColor('#000000')
@@ -1760,12 +2063,12 @@ struct RelaySettingSet {
     } else if (cell.kind === 'unit') {
       Text(cell.text)
         .layoutWeight(cell.weight)
-        .constraintSize({ minWidth: this.s(this.unitMinWidthForCell(cell)) })
+        .constraintSize({ minWidth: this.s(cell.unitMinWidth) })
         .fontSize(this.s(this.fieldUnitFontSize))
         .fontColor('#444444')
         .fontFamily('STKaiti')
         .maxLines(1)
-        .margin({ left: this.s(this.unitLeftMarginForCell(cell)) })
+        .margin({ left: this.s(cell.unitLeftMargin) })
         .textAlign(TextAlign.Start);
     } else if (cell.kind === 'select') {
       Row() {
@@ -1797,11 +2100,11 @@ struct RelaySettingSet {
     } else {
       TextInput({ text: this.getCellValue(cell), placeholder: '' })
         .layoutWeight(cell.weight)
-        .constraintSize({ minWidth: this.s(this.valueMinWidthForCell(cell)) })
+        .constraintSize({ minWidth: this.s(cell.valueMinWidth) })
         .height(this.s(this.inputBoxHeight))
         .fontSize(this.s(this.inputValueFontSize))
         .fontColor('#111111')
-        .fontFamily(cell.text.indexOf(':') !== -1 ? 'sans-serif' : 'monospace')
+        .fontFamily(cell.inputFontFamily)
         .backgroundColor('#FCFCFC')
         .border({ width: 1, color: '#C8C8C8' })
         .borderRadius(this.s(this.fieldBoxRadius))
@@ -1889,7 +2192,7 @@ struct RelaySettingSet {
             .height('100%')
             .fontSize(this.s(this.inputValueFontSize))
             .fontColor('#111111')
-            .fontFamily('monospace')
+            .fontFamily(field.inputFontFamily)
             .backgroundColor('#00000000')
             .border({ width: 0 })
             .padding({ left: 0, right: 0, top: this.s(1), bottom: this.s(1) })
