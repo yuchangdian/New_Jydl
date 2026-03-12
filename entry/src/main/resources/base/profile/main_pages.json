@@ -3,6 +3,8 @@
     "pages/Index",
     "pages/SoftStrap",
     "pages/SoftStrapSet",
+    "pages/RelaySettingDisp",
+    "pages/RelaySetting_DispSelect",
     "pages/RelaySettingSet",
     "pages/RelaySetting_SetSelect"
   ]

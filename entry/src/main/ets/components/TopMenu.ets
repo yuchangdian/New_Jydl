@@ -59,11 +59,14 @@ export struct TopMenu {
   }
 
   private handleLeafClick(item: MenuSubItem, subItem: SubMenuItem): void {
-    if (item.title === '保护定值' && subItem.title === '整定') {
+    if (item.title === '\u4fdd\u62a4\u5b9a\u503c' && subItem.title === '\u6d4f\u89c8') {
+      this.openPage('pages/RelaySetting_DispSelect');
+      return;
+    }
+    if (item.title === '\u4fdd\u62a4\u5b9a\u503c' && subItem.title === '\u6574\u5b9a') {
       this.openPage('pages/RelaySetting_SetSelect');
       return;
     }
-
     this.closeMenus();
   }
 

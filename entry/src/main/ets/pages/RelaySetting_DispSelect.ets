@@ -12,14 +12,14 @@ class BottomActionState {
 class RelaySettingSelectVM {
   noticeText: string = '';
   titleLeft: string = '运行操作';
-  titleRight: string = '—整定保护定值';
+  titleRight: string = '\u2014\u6d4f\u89c8\u4fdd\u62a4\u5b9a\u503c';
   actions: BottomActionState = new BottomActionState();
   timeText: string = '2024/12/30\n12:12:30';
 }
 
 @Entry
 @Component
-export struct RelaySetting_SetSelect {
+export struct RelaySetting_DispSelect {
   @State vm: RelaySettingSelectVM = new RelaySettingSelectVM();
   @State uiScale: number = 1;
   @State zoneCode: string = '00';
@@ -47,19 +47,19 @@ export struct RelaySetting_SetSelect {
   private normalizeZoneCode(): string | undefined {
     let trimmed = this.zoneCode.trim();
     if (trimmed.length === 0) {
-      this.warningText = '请输入保护定值区号';
+      this.warningText = '\u8bf7\u8f93\u5165\u6d4f\u89c8\u533a\u53f7';
       return undefined;
     }
 
     if (!/^\d{1,2}$/.test(trimmed)) {
-      this.warningText = '区号仅支持 00-19';
+      this.warningText = '\u533a\u53f7\u4ec5\u652f\u6301 00-19';
       return undefined;
     }
 
     let normalized = trimmed.padStart(2, '0');
     let zoneIndex = Number(normalized);
     if (isNaN(zoneIndex) || zoneIndex < 0 || zoneIndex > 19) {
-      this.warningText = '区号仅支持 00-19';
+      this.warningText = '\u533a\u53f7\u4ec5\u652f\u6301 00-19';
       return undefined;
     }
 
@@ -68,14 +68,14 @@ export struct RelaySetting_SetSelect {
     return normalized;
   }
 
-  private openRelaySettingSet(): void {
+  private openRelaySettingDisp(): void {
     let normalized = this.normalizeZoneCode();
     if (!normalized) {
       return;
     }
 
     router.pushUrl({
-      url: 'pages/RelaySettingSet',
+      url: 'pages/RelaySettingDisp',
       params: {
         zoneCode: normalized
       }
@@ -91,7 +91,7 @@ export struct RelaySetting_SetSelect {
       Column() {
         Column() {
           Row() {
-            Text('请输入保护定值区号:')
+            Text('\u8bf7\u8f93\u5165\u6d4f\u89c8\u533a\u53f7:')
               .width('auto')
               .height(this.s(81))
               .fontSize(this.s(this.midFontSize + 4))
@@ -224,7 +224,7 @@ export struct RelaySetting_SetSelect {
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
         .onClick(() => {
-          this.openRelaySettingSet();
+          this.openRelaySettingDisp();
         });
 
       Blank().layoutWeight(80);

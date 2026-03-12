@@ -47,9 +47,17 @@ export struct CommonSetting_PrimarySystem_Set {
   private readonly bodyFontSize: number = 16;
   private readonly rowHeight: number = 54;
   private readonly separatorSpace: number = 12;
+  private readonly separatorStroke: number = 3;
   private readonly inputHeight: number = 35;
   private readonly inputWidth: number = 117;
   private readonly bottomButtonHeight: number = 55;
+  private readonly pageMaxWidth: number = 1155;
+  private readonly titleIconSize: number = 24;
+  private readonly linePhaseBoxWidth: number = 96;
+  private readonly modeBoxWidth: number = 100;
+  private readonly separatorColor: string = '#9E9E9E';
+  private readonly fieldBorderColor: string = '#B8B8B8';
+  private readonly fieldBackgroundColor: string = '#FFFFFF';
 
   private readonly linePhaseOptions: string[] = ['A相', 'B相', 'C相', 'AB相', 'CA相', 'BC相', '三相'];
   private readonly ctConnectionOptions: string[] = ['两相式', '三相式'];
@@ -224,36 +232,43 @@ export struct CommonSetting_PrimarySystem_Set {
 
   build() {
     Column() {
-      this.HeaderBar();
+      Column() {
+        this.HeaderBar();
 
-      Scroll() {
-        Column() {
-          this.StandardRatedRow('母线PT', 'bus_pt_primary', 'kV', 'bus_pt_secondary', 'V');
-          this.SeparatorRow();
-          this.StandardRatedRow('母线零序PT', 'bus_zero_pt_primary', 'kV', 'bus_zero_pt_secondary', 'V');
-          this.SeparatorRow();
-          this.LinePtRow();
-          this.SeparatorRow();
-          this.StandardRatedRow('保护CT', 'protect_ct_primary', 'A', 'protect_ct_secondary', 'A');
-          this.SeparatorRow();
-          this.StandardRatedRow('零序CT', 'zero_ct_primary', 'A', 'zero_ct_secondary', 'A');
-          this.SeparatorRow();
-          this.StandardRatedRow('测量CT', 'measure_ct_primary', 'A', 'measure_ct_secondary', 'A');
-          this.SeparatorRow();
-          this.ModeAndCapacityRow();
-          Blank().height(this.s(200));
+        Scroll() {
+          Column() {
+            this.StandardRatedRow('母线PT', 'bus_pt_primary', 'kV', 'bus_pt_secondary', 'V');
+            this.SeparatorRow();
+            this.StandardRatedRow('母线零序PT', 'bus_zero_pt_primary', 'kV', 'bus_zero_pt_secondary', 'V');
+            this.SeparatorRow();
+            this.LinePtRow();
+            this.SeparatorRow();
+            this.StandardRatedRow('保护CT', 'protect_ct_primary', 'A', 'protect_ct_secondary', 'A');
+            this.SeparatorRow();
+            this.StandardRatedRow('零序CT', 'zero_ct_primary', 'A', 'zero_ct_secondary', 'A');
+            this.SeparatorRow();
+            this.StandardRatedRow('测量CT', 'measure_ct_primary', 'A', 'measure_ct_secondary', 'A');
+            this.SeparatorRow();
+            this.ModeAndCapacityRow();
+            Blank().height(this.s(200));
+          }
+          .width('100%')
+          .constraintSize({ minHeight: this.s(700) });
         }
+        .layoutWeight(1)
         .width('100%')
-        .constraintSize({ minHeight: this.s(700) });
-      }
-      .layoutWeight(1)
-      .width('100%')
-      .backgroundColor('#FFFFFF');
+        .backgroundColor('#FFFFFF');
 
-      this.BottomBar();
+        this.BottomBar();
+      }
+      .width('100%')
+      .height('100%')
+      .constraintSize({ maxWidth: this.s(this.pageMaxWidth) })
+      .backgroundColor('#FFFFFF');
     }
     .width('100%')
     .height('100%')
+    .alignItems(HorizontalAlign.Center)
     .backgroundColor('#FFFFFF');
   }
 
@@ -286,35 +301,36 @@ export struct CommonSetting_PrimarySystem_Set {
 
       Button() {
         Image($r('app.media.return'))
-          .width(this.s(30))
-          .height(this.s(30));
+          .width(this.s(37))
+          .height(this.s(40));
       }
       .layoutWeight(2)
       .height(this.s(40))
       .padding(0)
       .backgroundColor('#D3D3D3')
       .border({ width: 0 })
+      .borderRadius(0)
       .onClick(() => {
         router.back();
       });
 
       Button() {
         Image($r('app.media.close'))
-          .width(this.s(26))
-          .height(this.s(26));
+          .width(this.s(32))
+          .height(this.s(40));
       }
       .layoutWeight(2)
       .height(this.s(40))
       .padding(0)
       .backgroundColor('#D3D3D3')
       .border({ width: 0 })
+      .borderRadius(0)
       .onClick(() => {
         router.back();
       });
     }
     .width('100%')
     .height(this.s(70))
-    .padding({ left: 0, right: 0, top: 0, bottom: 0 })
     .alignItems(VerticalAlign.Center)
     .backgroundColor('#D3D3D3');
   }
@@ -323,8 +339,8 @@ export struct CommonSetting_PrimarySystem_Set {
   SeparatorRow() {
     Row() {
       Divider()
-        .strokeWidth(this.s(1))
-        .color('#909090')
+        .strokeWidth(this.s(this.separatorStroke))
+        .color(this.separatorColor)
         .width('100%');
     }
     .width('100%')
@@ -356,7 +372,7 @@ export struct CommonSetting_PrimarySystem_Set {
       Blank().layoutWeight(3);
       this.RatedFieldBlock('二次额定值:', 'line_pt_secondary', 'V', 13);
       Blank().layoutWeight(3);
-      this.SelectFieldBlock('相别:', 'line_phase', 7, this.s(110));
+      this.SelectFieldBlock('相别:', 'line_phase', 7, this.s(this.linePhaseBoxWidth));
     }
     .width('100%')
     .height(this.s(this.rowHeight))
@@ -366,9 +382,9 @@ export struct CommonSetting_PrimarySystem_Set {
   @Builder
   ModeAndCapacityRow() {
     Row() {
-      this.SelectFieldBlock('CT接线方式:', 'ct_connection', 70, this.s(118));
+      this.SelectFieldBlock('CT接线方式:', 'ct_connection', 70, this.s(this.modeBoxWidth));
       Blank().layoutWeight(9);
-      this.SelectFieldBlock('零序电流采集模式:', 'zero_current_mode', 100, this.s(118));
+      this.SelectFieldBlock('零序电流采集模式:', 'zero_current_mode', 100, this.s(this.modeBoxWidth));
       Blank().layoutWeight(20);
       this.CapacityFieldBlock();
     }
@@ -381,11 +397,10 @@ export struct CommonSetting_PrimarySystem_Set {
   @Builder
   TitleBlock(title: string, blockWeight: number) {
     Row() {
-      Blank().width(this.s(6));
       Image($r('app.media.right_black'))
-        .width(this.s(18))
-        .height(this.s(18))
-        .margin({ right: this.s(8) });
+        .width(this.s(this.titleIconSize))
+        .height(this.s(this.titleIconSize))
+        .margin({ right: this.s(6) });
 
       Text(title)
         .layoutWeight(1)
@@ -398,6 +413,7 @@ export struct CommonSetting_PrimarySystem_Set {
     }
     .layoutWeight(blockWeight)
     .height('100%')
+    .padding({ left: this.s(6), right: this.s(6) })
     .alignItems(VerticalAlign.Center);
   }
 
@@ -409,21 +425,9 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .maxLines(1)
-        .margin({ right: this.s(10) });
+        .margin({ right: this.s(8) });
 
-      TextInput({ text: this.getInputValue(fieldKey), placeholder: '' })
-        .width(this.s(this.inputWidth))
-        .height(this.s(this.inputHeight))
-        .fontSize(this.s(this.bodyFontSize))
-        .fontColor('#111111')
-        .fontFamily('Ubuntu')
-        .backgroundColor('#FFFFFF')
-        .border({ width: 1, color: '#B8B8B8' })
-        .padding({ left: this.s(6), right: this.s(6), top: this.s(1), bottom: this.s(1) })
-        .textAlign(TextAlign.Start)
-        .onChange((value: string) => {
-          this.setInputValue(fieldKey, value);
-        });
+      this.InputField(fieldKey);
 
       Text(unit)
         .width(this.s(28))
@@ -431,10 +435,35 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .textAlign(TextAlign.Center)
-        .margin({ left: this.s(8) });
+        .margin({ left: this.s(6) });
     }
     .layoutWeight(blockWeight)
     .height('100%')
+    .alignItems(VerticalAlign.Center);
+  }
+
+  @Builder
+  InputField(fieldKey: string) {
+    Row() {
+      TextInput({ text: this.getInputValue(fieldKey), placeholder: '' })
+        .layoutWeight(1)
+        .height('100%')
+        .fontSize(this.s(this.bodyFontSize))
+        .fontColor('#111111')
+        .fontFamily('Ubuntu')
+        .backgroundColor(this.fieldBackgroundColor)
+        .border({ width: 0 })
+        .padding({ left: this.s(6), right: this.s(6), top: 0, bottom: 0 })
+        .textAlign(TextAlign.Start)
+        .onChange((value: string) => {
+          this.setInputValue(fieldKey, value);
+        });
+    }
+    .width(this.s(this.inputWidth))
+    .height(this.s(this.inputHeight))
+    .backgroundColor(this.fieldBackgroundColor)
+    .border({ width: 1, color: this.fieldBorderColor })
+    .borderRadius(0)
     .alignItems(VerticalAlign.Center);
   }
 
@@ -446,7 +475,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .maxLines(1)
-        .margin({ right: this.s(8) });
+        .margin({ right: this.s(6) });
 
       this.ComboField(fieldKey, boxWidth);
     }
@@ -468,15 +497,18 @@ export struct CommonSetting_PrimarySystem_Set {
         .textAlign(TextAlign.Start);
 
       Text('▼')
-        .fontSize(this.s(10))
-        .fontColor('#555555')
-        .margin({ left: this.s(8) });
+        .width(this.s(14))
+        .fontSize(this.s(11))
+        .fontColor('#111111')
+        .textAlign(TextAlign.Center)
+        .margin({ left: this.s(4) });
     }
     .width(boxWidth)
     .height(this.s(this.inputHeight))
-    .padding({ left: this.s(8), right: this.s(8) })
-    .backgroundColor('#FFFFFF')
-    .border({ width: 1, color: '#B8B8B8' })
+    .padding({ left: this.s(6), right: this.s(4) })
+    .backgroundColor(this.fieldBackgroundColor)
+    .border({ width: 1, color: this.fieldBorderColor })
+    .borderRadius(0)
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       this.cycleSelectValue(fieldKey);
@@ -490,21 +522,9 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontSize(this.s(this.bodyFontSize))
         .fontColor('#000000')
         .fontFamily('Ubuntu')
-        .margin({ right: this.s(10) });
+        .margin({ right: this.s(8) });
 
-      TextInput({ text: this.getInputValue('rated_power'), placeholder: '' })
-        .width(this.s(this.inputWidth))
-        .height(this.s(this.inputHeight))
-        .fontSize(this.s(this.bodyFontSize))
-        .fontColor('#111111')
-        .fontFamily('Ubuntu')
-        .backgroundColor('#FFFFFF')
-        .border({ width: 1, color: '#B8B8B8' })
-        .padding({ left: this.s(6), right: this.s(6), top: this.s(1), bottom: this.s(1) })
-        .textAlign(TextAlign.Start)
-        .onChange((value: string) => {
-          this.setInputValue('rated_power', value);
-        });
+      this.InputField('rated_power');
 
       Text('kVA')
         .width(this.s(38))
@@ -512,7 +532,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontColor('#000000')
         .fontFamily('Ubuntu')
         .textAlign(TextAlign.Center)
-        .margin({ left: this.s(8) });
+        .margin({ left: this.s(6) });
     }
     .layoutWeight(100)
     .height('100%')
@@ -533,6 +553,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontWeight(FontWeight.Bold)
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
+        .borderRadius(0)
         .padding(0)
         .onClick(() => {
           this.resetDefaults();
@@ -548,6 +569,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontFamily('Ubuntu')
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
+        .borderRadius(0)
         .padding(0);
 
       Blank().layoutWeight(10);
@@ -560,6 +582,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontFamily('Ubuntu')
         .backgroundColor('#BEBEBE')
         .border({ width: 0 })
+        .borderRadius(0)
         .padding(0)
         .onClick(() => {
           router.back();
@@ -573,6 +596,7 @@ export struct CommonSetting_PrimarySystem_Set {
         .fontSize(this.s(this.bodyFontSize))
         .fontColor('#000000')
         .fontFamily('STKaiti')
+        .lineHeight(this.s(18))
         .textAlign(TextAlign.Center);
     }
     .width('100%')

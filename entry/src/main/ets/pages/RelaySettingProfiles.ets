@@ -175,31 +175,45 @@ export class RelaySettingProfilesStore {
 
 export class RelayFieldBinding {
   fieldId: string;
+  bindingIndex: number;
   group: RelayGroupKey;
   fieldKey: string;
   valueType: RelayStoredFieldValueType;
   defaultText: string;
   unit: string;
+  labelText: string;
   options: RelayEnumOption[];
 
   constructor(
     fieldId: string,
+    bindingIndex: number,
     group: RelayGroupKey,
     fieldKey: string,
     valueType: RelayStoredFieldValueType,
     defaultText: string,
     unit: string = '',
-    options: RelayEnumOption[] = []
+    options: RelayEnumOption[] = [],
+    labelText: string = '请选择'
   ) {
     this.fieldId = fieldId;
+    this.bindingIndex = bindingIndex;
     this.group = group;
     this.fieldKey = fieldKey;
     this.valueType = valueType;
     this.defaultText = defaultText;
     this.unit = unit;
+    this.labelText = labelText;
     this.options = options;
   }
 }
+
+class RelayProfilesSessionCache {
+  serializedStore: string = '';
+  hasStore: boolean = false;
+  store: RelaySettingProfilesStore = new RelaySettingProfilesStore();
+}
+
+const RELAY_PROFILES_SESSION_CACHE: RelayProfilesSessionCache = new RelayProfilesSessionCache();
 
 function relayDefaultNumber(text: string): number {
   let parsed = Number(text);
@@ -282,6 +296,15 @@ function relayUnitTextInCells(cells: RelayCellLike[]): string {
   return '';
 }
 
+function relayLabelTextInCells(cells: RelayCellLike[]): string {
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].kind === 'label') {
+      return cells[i].text;
+    }
+  }
+  return '';
+}
+
 function relayItemHasFieldContent(item: RelayRowItemLike): boolean {
   for (let i = 0; i < item.cells.length; i++) {
     let kind = item.cells[i].kind;
@@ -309,6 +332,21 @@ function relayFindUnitForItem(row: RelayRowLike, itemIndex: number): string {
     }
   }
   return '';
+}
+
+function relayFindLabelForItem(row: RelayRowLike, itemIndex: number): string {
+  let item = row.items[itemIndex];
+  let localLabel = relayLabelTextInCells(item.cells);
+  if (localLabel.length > 0) {
+    return localLabel;
+  }
+  for (let prevItemIndex = itemIndex - 1; prevItemIndex >= 0; prevItemIndex--) {
+    let previousLabel = relayLabelTextInCells(row.items[prevItemIndex].cells);
+    if (previousLabel.length > 0) {
+      return previousLabel;
+    }
+  }
+  return '请选择';
 }
 
 function relayGroupForSectionId(sectionId: string): RelayGroupKey {
@@ -423,6 +461,7 @@ export function buildRelayFieldBindings(
   monitorSections: RelayMonitorSectionLike[]
 ): RelayFieldBinding[] {
   let bindings: RelayFieldBinding[] = [];
+  let nextBindingIndex = 0;
 
   for (let sectionIndex = 0; sectionIndex < mainSections.length; sectionIndex++) {
     let section = mainSections[sectionIndex];
@@ -432,6 +471,7 @@ export function buildRelayFieldBindings(
       for (let itemIndex = 0; itemIndex < row.items.length; itemIndex++) {
         let item = row.items[itemIndex];
         let unit = relayFindUnitForItem(row, itemIndex);
+        let labelText = relayFindLabelForItem(row, itemIndex);
         for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
           let cell = item.cells[cellIndex];
           if (cell.kind !== 'input' && cell.kind !== 'select') {
@@ -440,13 +480,16 @@ export function buildRelayFieldBindings(
           let valueType = relayFieldValueTypeForSpec(group, cell.kind, cell.text, unit);
           bindings.push(new RelayFieldBinding(
             cell.id,
+            nextBindingIndex,
             group,
             cell.id,
             valueType,
             cell.text,
             cell.kind === 'input' ? unit : '',
-            cell.kind === 'select' ? relayEnumOptionsForDefault(cell.text) : []
+            cell.kind === 'select' ? relayEnumOptionsForDefault(cell.text) : [],
+            labelText
           ));
+          nextBindingIndex++;
         }
       }
     }
@@ -459,13 +502,16 @@ export function buildRelayFieldBindings(
       let valueType = relayFieldValueTypeForSpec('abnormalMonitoring', field.kind, field.value, field.unit);
       bindings.push(new RelayFieldBinding(
         field.id,
+        nextBindingIndex,
         'abnormalMonitoring',
         field.id,
         valueType,
         field.value,
         field.kind === 'input' ? field.unit : '',
-        field.kind === 'select' ? relayEnumOptionsForDefault(field.value) : []
+        field.kind === 'select' ? relayEnumOptionsForDefault(field.value) : [],
+        field.value
       ));
+      nextBindingIndex++;
     }
   }
 
@@ -661,6 +707,16 @@ export function cloneRelaySettingProfilesStoreForProfileUpdate(
   return nextStore;
 }
 
+export function cloneRelaySettingProfilesStore(store: RelaySettingProfilesStore): RelaySettingProfilesStore {
+  let nextStore = new RelaySettingProfilesStore();
+  nextStore.version = store.version;
+  nextStore.profiles = [];
+  for (let i = 0; i < store.profiles.length; i++) {
+    nextStore.profiles.push(cloneRelaySettingProfile(store.profiles[i]));
+  }
+  return nextStore;
+}
+
 export function relayDefaultStoredField(binding: RelayFieldBinding): RelayStoredField {
   if (binding.valueType === 'enum') {
     let enumValue = relayEnumValueForLabel(binding.defaultText, binding.options, 0);
@@ -801,4 +857,28 @@ export function relayDeserializeProfilesStore(
   } catch (error) {
     return undefined;
   }
+}
+
+export function relayRememberProfilesStoreInSession(raw: string, store: RelaySettingProfilesStore): void {
+  RELAY_PROFILES_SESSION_CACHE.serializedStore = raw;
+  RELAY_PROFILES_SESSION_CACHE.store = cloneRelaySettingProfilesStore(store);
+  RELAY_PROFILES_SESSION_CACHE.hasStore = true;
+}
+
+export function relayLoadProfilesStoreFromSession(
+  raw: string,
+  bindings: RelayFieldBinding[]
+): RelaySettingProfilesStore | undefined {
+  if (raw.trim().length === 0) {
+    return undefined;
+  }
+  if (RELAY_PROFILES_SESSION_CACHE.hasStore && RELAY_PROFILES_SESSION_CACHE.serializedStore === raw) {
+    return cloneRelaySettingProfilesStore(RELAY_PROFILES_SESSION_CACHE.store);
+  }
+  let nextStore = relayDeserializeProfilesStore(raw, bindings);
+  if (!nextStore) {
+    return undefined;
+  }
+  relayRememberProfilesStoreInSession(raw, nextStore);
+  return cloneRelaySettingProfilesStore(nextStore);
 }

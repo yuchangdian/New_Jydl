@@ -1,25 +1,27 @@
 import router from '@ohos.router';
 import display from '@ohos.display';
 import {
+  RELAY_PROFILE_COUNT,
   RELAY_SETTING_PROFILES_STORE_KEY,
   RelayFieldBinding,
   RelaySettingProfile,
   RelaySettingProfilesStore,
   RelayStoredField,
   buildRelayFieldBindings,
+  cloneRelaySettingProfilesStoreForProfileUpdate,
   createDefaultRelaySettingProfile,
   createDefaultRelaySettingProfilesStore,
   relayDefaultSelectOptions,
   relayDefaultStoredField,
+  relayDeserializeProfilesStore,
   relayFindFieldBinding,
   relayFormatStoredField,
-  relayLoadProfilesStoreFromSession,
   relayNormalizeZoneCode,
   relayParseStoredField,
   relayReadProfileField,
-  relayRememberProfilesStoreInSession,
   relaySerializeProfilesStore,
   relayWriteProfileField,
+  relayZoneCodeForIndex,
   relayZoneCodeToIndex
 } from './RelaySettingProfiles';
 
@@ -76,9 +78,6 @@ class RelayCellSpec {
   kind: string;
   text: string;
   weight: number;
-  bindingIndex: number = -1;
-  labelText: string = '请选择';
-  unitText: string = '';
 
   constructor(id: string, kind: string, text: string, weight: number) {
     this.id = id;
@@ -135,7 +134,6 @@ class RelayMonitorFieldSpec {
   unit: string;
   kind: string;
   boxWidth: number;
-  bindingIndex: number = -1;
 
   constructor(
     id: string,
@@ -724,56 +722,13 @@ const RELAY_MONITOR_SECTIONS: RelayMonitorSectionSpec[] = [
 ];
 
 const RELAY_FIELD_BINDINGS: RelayFieldBinding[] = buildRelayFieldBindings(RELAY_MAIN_SECTIONS, RELAY_MONITOR_SECTIONS);
-const RELAY_BOUND_MAIN_CELLS: RelayCellSpec[] = [];
-const RELAY_BOUND_MONITOR_FIELDS: RelayMonitorFieldSpec[] = [];
-
-function relayBindFieldSpecs(): void {
-  for (let sectionIndex = 0; sectionIndex < RELAY_MAIN_SECTIONS.length; sectionIndex++) {
-    let section = RELAY_MAIN_SECTIONS[sectionIndex];
-    for (let rowIndex = 0; rowIndex < section.rows.length; rowIndex++) {
-      let row = section.rows[rowIndex];
-      for (let itemIndex = 0; itemIndex < row.items.length; itemIndex++) {
-        let item = row.items[itemIndex];
-        for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
-          let cell = item.cells[cellIndex];
-          if (cell.kind !== 'input' && cell.kind !== 'select') {
-            continue;
-          }
-          let binding = relayFindFieldBinding(RELAY_FIELD_BINDINGS, cell.id);
-          if (!binding) {
-            continue;
-          }
-          cell.bindingIndex = binding.bindingIndex;
-          cell.labelText = binding.labelText;
-          cell.unitText = binding.unit;
-          RELAY_BOUND_MAIN_CELLS[binding.bindingIndex] = cell;
-        }
-      }
-    }
-  }
-
-  for (let sectionIndex = 0; sectionIndex < RELAY_MONITOR_SECTIONS.length; sectionIndex++) {
-    let section = RELAY_MONITOR_SECTIONS[sectionIndex];
-    for (let fieldIndex = 0; fieldIndex < section.fields.length; fieldIndex++) {
-      let field = section.fields[fieldIndex];
-      let binding = relayFindFieldBinding(RELAY_FIELD_BINDINGS, field.id);
-      if (!binding) {
-        continue;
-      }
-      field.bindingIndex = binding.bindingIndex;
-      RELAY_BOUND_MONITOR_FIELDS[binding.bindingIndex] = field;
-    }
-  }
-}
-
-relayBindFieldSpecs();
 
 @Observed
 class RelaySettingVM {
   headerMode: HeaderModeState = new HeaderModeState();
   noticeText: string = '';
   titleLeft: string = '定值管理';
-  titleRight: string = '—整定 00 区保护定值';
+  titleRight: string = '—整定 1 区保护定值';
   actions: BottomActionState = new BottomActionState();
   timeText: string = '2024/12/30\n12:12:30';
 }
@@ -829,22 +784,18 @@ struct QtStaticCheck {
 struct RelaySettingSet {
   @StorageLink('relay_setting_set_store') relaySettingStore: string = '';
   @StorageLink('relay_setting_profiles_store_v2') relaySettingProfilesStore: string = '';
-  @State isLoading: boolean = true;
+  @State profilesStore: RelaySettingProfilesStore = new RelaySettingProfilesStore();
   @State vm: RelaySettingVM = new RelaySettingVM();
   @State uiScale: number = 1;
   @State modeInSelected: boolean = true;
   @State currentZoneCode: string = '00';
   @State currentProfileIndex: number = 0;
-  @State currentDisplayValues: string[] = [];
-  @State currentWidthCache: number[] = [];
   @State selectOverlayVisible: boolean = false;
   @State selectOverlayTitle: string = '请选择';
   @State selectOverlayOptions: string[] = [];
   @State selectOverlayValue: string = '';
-  @State selectOverlayTargetBindingIndex: number = -1;
+  @State selectOverlayTargetId: string = '';
 
-  private profilesStore: RelaySettingProfilesStore = new RelaySettingProfilesStore();
-  private loadToken: number = 0;
   private readonly checkBoxSize: number = 28;
   private readonly noticeFontSize: number = 18;
   private readonly midFontSize: number = 18;
@@ -973,44 +924,35 @@ struct RelaySettingSet {
     return store;
   }
 
-  private loadProfilesStore(): RelaySettingProfilesStore {
-    let nextStore = relayLoadProfilesStoreFromSession(this.relaySettingProfilesStore, RELAY_FIELD_BINDINGS);
+  private loadValueEntries(): void {
+    let nextStore = this.relaySettingProfilesStore.trim().length > 0
+      ? relayDeserializeProfilesStore(this.relaySettingProfilesStore, RELAY_FIELD_BINDINGS)
+      : undefined;
+
     if (nextStore) {
-      return nextStore;
+      this.profilesStore = nextStore;
+      return;
     }
 
     if (this.relaySettingProfilesStore.trim().length === 0) {
       let migratedStore = this.migrateLegacyProfilesStore();
-      let serializedStore = relaySerializeProfilesStore(migratedStore);
-      this.relaySettingProfilesStore = serializedStore;
-      relayRememberProfilesStoreInSession(serializedStore, migratedStore);
-      return migratedStore;
+      this.profilesStore = migratedStore;
+      this.relaySettingProfilesStore = relaySerializeProfilesStore(migratedStore);
+      return;
     }
 
-    let defaultStore = createDefaultRelaySettingProfilesStore(RELAY_FIELD_BINDINGS);
-    relayRememberProfilesStoreInSession(this.relaySettingProfilesStore, defaultStore);
-    return defaultStore;
+    this.profilesStore = createDefaultRelaySettingProfilesStore(RELAY_FIELD_BINDINGS);
   }
 
   private saveValueEntries(noticeText: string = ''): void {
-    if (this.isLoading) {
-      return;
-    }
-    let serializedStore = relaySerializeProfilesStore(this.profilesStore);
-    this.relaySettingProfilesStore = serializedStore;
-    relayRememberProfilesStoreInSession(serializedStore, this.profilesStore);
+    this.relaySettingProfilesStore = relaySerializeProfilesStore(this.profilesStore);
     this.vm.noticeText = noticeText;
   }
 
   private resetCurrentZoneValues(): void {
-    if (this.isLoading) {
-      return;
-    }
-    if (this.currentProfileIndex < 0 || this.currentProfileIndex >= this.profilesStore.profiles.length) {
-      return;
-    }
-    this.profilesStore.profiles[this.currentProfileIndex] = createDefaultRelaySettingProfile(this.currentZoneCode, RELAY_FIELD_BINDINGS);
-    this.rebuildCurrentZoneCache();
+    let nextStore = cloneRelaySettingProfilesStoreForProfileUpdate(this.profilesStore, this.currentProfileIndex);
+    nextStore.profiles[this.currentProfileIndex] = createDefaultRelaySettingProfile(this.currentZoneCode, RELAY_FIELD_BINDINGS);
+    this.profilesStore = nextStore;
     this.saveValueEntries();
   }
 
@@ -1022,105 +964,25 @@ struct RelaySettingSet {
       left.enumValue === right.enumValue;
   }
 
-  private bindingAtIndex(bindingIndex: number): RelayFieldBinding | undefined {
-    if (bindingIndex < 0 || bindingIndex >= RELAY_FIELD_BINDINGS.length) {
-      return undefined;
-    }
-    return RELAY_FIELD_BINDINGS[bindingIndex];
-  }
-
-  private displayValueAtBindingIndex(bindingIndex: number, fallbackValue: string): string {
-    if (bindingIndex < 0 || bindingIndex >= this.currentDisplayValues.length) {
+  private readValue(fieldId: string, fallbackValue: string): string {
+    let binding = this.bindingForFieldId(fieldId);
+    if (!binding) {
       return fallbackValue;
     }
-    return this.currentDisplayValues[bindingIndex];
-  }
-
-  private widthAtBindingIndex(bindingIndex: number, fallbackWidth: number): number {
-    if (bindingIndex < 0 || bindingIndex >= this.currentWidthCache.length) {
-      return fallbackWidth;
-    }
-    let currentWidth = this.currentWidthCache[bindingIndex];
-    return currentWidth > fallbackWidth ? currentWidth : fallbackWidth;
-  }
-
-  private cloneStringArray(source: string[]): string[] {
-    let target: string[] = [];
-    for (let i = 0; i < source.length; i++) {
-      target.push(source[i]);
-    }
-    return target;
-  }
-
-  private cloneNumberArray(source: number[]): number[] {
-    let target: number[] = [];
-    for (let i = 0; i < source.length; i++) {
-      target.push(source[i]);
-    }
-    return target;
-  }
-
-  private resolveBindingWidth(bindingIndex: number, displayValue: string): number {
-    let cell = RELAY_BOUND_MAIN_CELLS[bindingIndex];
-    if (cell && cell.kind === 'select') {
-      let defaultWidth = this.selectMinWidthForCell(cell);
-      let dynamicWidth = this.selectCellMinWidth(displayValue);
-      return dynamicWidth > defaultWidth ? dynamicWidth : defaultWidth;
-    }
-
-    let field = RELAY_BOUND_MONITOR_FIELDS[bindingIndex];
-    if (!field) {
-      return 0;
-    }
-
-    let minWidth = field.kind === 'select'
-      ? this.selectCellMinWidth(displayValue)
-      : this.valueCellMinWidth(displayValue);
-    return field.boxWidth > minWidth ? field.boxWidth : minWidth;
-  }
-
-  private rebuildCurrentZoneCache(): void {
-    let nextDisplayValues: string[] = [];
-    let nextWidthCache: number[] = [];
     let profile = this.currentProfile();
-
-    for (let bindingIndex = 0; bindingIndex < RELAY_FIELD_BINDINGS.length; bindingIndex++) {
-      let binding = RELAY_FIELD_BINDINGS[bindingIndex];
-      let displayValue = profile
-        ? relayFormatStoredField(relayReadProfileField(profile, binding), binding)
-        : binding.defaultText;
-      nextDisplayValues.push(displayValue);
-      nextWidthCache.push(this.resolveBindingWidth(bindingIndex, displayValue));
+    if (!profile) {
+      return fallbackValue;
     }
-
-    this.currentDisplayValues = nextDisplayValues;
-    this.currentWidthCache = nextWidthCache;
+    return relayFormatStoredField(relayReadProfileField(profile, binding), binding);
   }
 
-  private updateBindingCache(bindingIndex: number, displayValue: string): void {
-    let nextDisplayValues = this.cloneStringArray(this.currentDisplayValues);
-    let nextWidthCache = this.cloneNumberArray(this.currentWidthCache);
-
-    while (nextDisplayValues.length <= bindingIndex) {
-      nextDisplayValues.push('');
-    }
-    while (nextWidthCache.length <= bindingIndex) {
-      nextWidthCache.push(0);
-    }
-
-    nextDisplayValues[bindingIndex] = displayValue;
-    nextWidthCache[bindingIndex] = this.resolveBindingWidth(bindingIndex, displayValue);
-    this.currentDisplayValues = nextDisplayValues;
-    this.currentWidthCache = nextWidthCache;
-  }
-
-  private writeBindingValue(bindingIndex: number, value: string): void {
-    if (this.isLoading) {
+  private writeValue(fieldId: string, value: string): void {
+    let binding = this.bindingForFieldId(fieldId);
+    if (!binding) {
       return;
     }
-    let binding = this.bindingAtIndex(bindingIndex);
     let profile = this.currentProfile();
-    if (!binding || !profile) {
+    if (!profile) {
       return;
     }
 
@@ -1134,8 +996,10 @@ struct RelaySettingSet {
       return;
     }
 
-    relayWriteProfileField(profile, binding, nextField);
-    this.updateBindingCache(bindingIndex, relayFormatStoredField(nextField, binding));
+    let nextStore = cloneRelaySettingProfilesStoreForProfileUpdate(this.profilesStore, this.currentProfileIndex);
+    let nextProfile = nextStore.profiles[this.currentProfileIndex];
+    relayWriteProfileField(nextProfile, binding, nextField);
+    this.profilesStore = nextStore;
     this.vm.noticeText = '';
   }
 
@@ -1154,11 +1018,62 @@ struct RelaySettingSet {
     return next;
   }
 
+  private unitTextInCells(cells: RelayCellSpec[]): string {
+    for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+      if (cells[cellIndex].kind === 'unit') {
+        return cells[cellIndex].text;
+      }
+    }
+    return '';
+  }
+
+  private itemHasFieldContent(item: RelayRowItemSpec): boolean {
+    for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
+      if (item.cells[cellIndex].kind === 'label' || item.cells[cellIndex].kind === 'input' || item.cells[cellIndex].kind === 'select') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private findCellUnitText(cellId: string): string {
+    for (let sectionIndex = 0; sectionIndex < RELAY_MAIN_SECTIONS.length; sectionIndex++) {
+      let section = RELAY_MAIN_SECTIONS[sectionIndex];
+      for (let rowIndex = 0; rowIndex < section.rows.length; rowIndex++) {
+        let row = section.rows[rowIndex];
+        for (let itemIndex = 0; itemIndex < row.items.length; itemIndex++) {
+          let item = row.items[itemIndex];
+          for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
+            if (item.cells[cellIndex].id !== cellId) {
+              continue;
+            }
+            let localUnit = this.unitTextInCells(item.cells);
+            if (localUnit.length > 0) {
+              return localUnit;
+            }
+            for (let nextItemIndex = itemIndex + 1; nextItemIndex < row.items.length; nextItemIndex++) {
+              let nextItem = row.items[nextItemIndex];
+              let nextUnit = this.unitTextInCells(nextItem.cells);
+              if (nextUnit.length > 0) {
+                return nextUnit;
+              }
+              if (this.itemHasFieldContent(nextItem)) {
+                break;
+              }
+            }
+            return '';
+          }
+        }
+      }
+    }
+    return '';
+  }
+
   private normalizeCellInputValue(cell: RelayCellSpec, value: string): string {
     if (cell.kind !== 'input') {
       return value;
     }
-    return this.stripUnitSuffix(value, cell.unitText);
+    return this.stripUnitSuffix(value, this.findCellUnitText(cell.id));
   }
 
   private normalizeMonitorInputValue(field: RelayMonitorFieldSpec, value: string): string {
@@ -1169,19 +1084,19 @@ struct RelaySettingSet {
   }
 
   private getCellValue(cell: RelayCellSpec): string {
-    return this.displayValueAtBindingIndex(cell.bindingIndex, cell.text);
+    return this.readValue(cell.id, cell.text);
   }
 
   private setCellValue(cell: RelayCellSpec, value: string): void {
-    this.writeBindingValue(cell.bindingIndex, this.normalizeCellInputValue(cell, value));
+    this.writeValue(cell.id, this.normalizeCellInputValue(cell, value));
   }
 
   private getMonitorFieldValue(field: RelayMonitorFieldSpec): string {
-    return this.displayValueAtBindingIndex(field.bindingIndex, field.value);
+    return this.readValue(field.id, field.value);
   }
 
   private setMonitorFieldValue(field: RelayMonitorFieldSpec, value: string): void {
-    this.writeBindingValue(field.bindingIndex, this.normalizeMonitorInputValue(field, value));
+    this.writeValue(field.id, this.normalizeMonitorInputValue(field, value));
   }
 
   private appendUniqueOption(options: string[], option: string): void {
@@ -1206,10 +1121,43 @@ struct RelaySettingSet {
     return options;
   }
 
+  private findCellLabel(cellId: string): string {
+    for (let sectionIndex = 0; sectionIndex < RELAY_MAIN_SECTIONS.length; sectionIndex++) {
+      let section = RELAY_MAIN_SECTIONS[sectionIndex];
+      for (let rowIndex = 0; rowIndex < section.rows.length; rowIndex++) {
+        let row = section.rows[rowIndex];
+        for (let itemIndex = 0; itemIndex < row.items.length; itemIndex++) {
+          let item = row.items[itemIndex];
+          for (let cellIndex = 0; cellIndex < item.cells.length; cellIndex++) {
+            let cell = item.cells[cellIndex];
+            if (cell.id !== cellId) {
+              continue;
+            }
+            for (let localIndex = 0; localIndex < item.cells.length; localIndex++) {
+              if (item.cells[localIndex].kind === 'label') {
+                return item.cells[localIndex].text;
+              }
+            }
+            for (let prevItemIndex = itemIndex - 1; prevItemIndex >= 0; prevItemIndex--) {
+              let prevItem = row.items[prevItemIndex];
+              for (let prevCellIndex = prevItem.cells.length - 1; prevCellIndex >= 0; prevCellIndex--) {
+                if (prevItem.cells[prevCellIndex].kind === 'label') {
+                  return prevItem.cells[prevCellIndex].text;
+                }
+              }
+            }
+            return '请选择';
+          }
+        }
+      }
+    }
+    return '请选择';
+  }
+
   private openCellSelect(cell: RelayCellSpec): void {
     let currentValue = this.getCellValue(cell);
-    this.selectOverlayTargetBindingIndex = cell.bindingIndex;
-    this.selectOverlayTitle = cell.labelText;
+    this.selectOverlayTargetId = cell.id;
+    this.selectOverlayTitle = this.findCellLabel(cell.id);
     this.selectOverlayOptions = this.selectOptionsForValue(cell.text, currentValue);
     this.selectOverlayValue = currentValue;
     this.selectOverlayVisible = true;
@@ -1217,7 +1165,7 @@ struct RelaySettingSet {
 
   private openMonitorSelect(field: RelayMonitorFieldSpec): void {
     let currentValue = this.getMonitorFieldValue(field);
-    this.selectOverlayTargetBindingIndex = field.bindingIndex;
+    this.selectOverlayTargetId = field.id;
     this.selectOverlayTitle = field.label;
     this.selectOverlayOptions = this.selectOptionsForValue(field.value, currentValue);
     this.selectOverlayValue = currentValue;
@@ -1226,11 +1174,10 @@ struct RelaySettingSet {
 
   private closeSelectOverlay(): void {
     this.selectOverlayVisible = false;
-    this.selectOverlayTargetBindingIndex = -1;
   }
 
   private applySelectOverlayValue(value: string): void {
-    this.writeBindingValue(this.selectOverlayTargetBindingIndex, value);
+    this.writeValue(this.selectOverlayTargetId, value);
     this.selectOverlayValue = value;
     this.closeSelectOverlay();
   }
@@ -1485,32 +1432,19 @@ struct RelaySettingSet {
   }
 
   private monitorFieldBoxWidth(field: RelayMonitorFieldSpec): number {
-    return this.widthAtBindingIndex(field.bindingIndex, field.boxWidth);
+    let currentValue = this.getMonitorFieldValue(field);
+    let minWidth = field.kind === 'select' ? this.selectCellMinWidth(currentValue) : this.valueCellMinWidth(currentValue);
+    return field.boxWidth > minWidth ? field.boxWidth : minWidth;
   }
 
   private selectBoxMinWidth(cell: RelayCellSpec): number {
-    return this.widthAtBindingIndex(cell.bindingIndex, this.selectMinWidthForCell(cell));
-  }
-
-  private prepareCurrentZone(loadToken: number): void {
-    let nextStore = this.loadProfilesStore();
-    if (loadToken !== this.loadToken) {
-      return;
-    }
-    this.profilesStore = nextStore;
-    this.rebuildCurrentZoneCache();
-    this.isLoading = false;
+    let currentWidth = this.selectCellMinWidth(this.getCellValue(cell));
+    let defaultWidth = this.selectMinWidthForCell(cell);
+    return currentWidth > defaultWidth ? currentWidth : defaultWidth;
   }
 
   aboutToAppear(): void {
-    this.loadToken++;
     this.modeInSelected = this.vm.headerMode.inMode.checked;
-    this.selectOverlayVisible = false;
-    this.selectOverlayTargetBindingIndex = -1;
-    this.vm.noticeText = '';
-    this.isLoading = true;
-    this.currentDisplayValues = [];
-    this.currentWidthCache = [];
     this.syncCurrentZoneState('00');
     try {
       let d = display.getDefaultDisplaySync();
@@ -1529,16 +1463,8 @@ struct RelaySettingSet {
       this.syncCurrentZoneState();
     }
 
-    let currentLoadToken = this.loadToken;
-    setTimeout(() => {
-      this.prepareCurrentZone(currentLoadToken);
-    }, 0);
-  }
-
-  aboutToDisappear(): void {
-    this.loadToken++;
-    this.selectOverlayVisible = false;
-    this.selectOverlayTargetBindingIndex = -1;
+    this.loadValueEntries();
+    this.syncCurrentZoneTitle();
   }
 
   private setMode(isIn: boolean): void {
@@ -1552,29 +1478,25 @@ struct RelaySettingSet {
       Column() {
         this.HeaderBar();
 
-        if (this.isLoading) {
-          this.LoadingBody();
-        } else {
-          Scroll() {
-            Column() {
-              ForEach(RELAY_MAIN_SECTIONS, (section: RelaySectionSpec) => {
-                this.SectionCard(section);
-              }, (section: RelaySectionSpec) => section.id)
+        Scroll() {
+          Column() {
+            ForEach(RELAY_MAIN_SECTIONS, (section: RelaySectionSpec) => {
+              this.SectionCard(section);
+            }, (section: RelaySectionSpec) => section.id)
 
-              // this.MonitorSections();
-            }
-            .width('100%')
-            .padding({ left: this.s(10), right: this.s(16), top: this.s(5), bottom: this.s(7) });
+            this.MonitorSections();
           }
-          .layoutWeight(1)
           .width('100%')
-          .backgroundColor('#FFFFFF');
+          .padding({ left: this.s(10), right: this.s(16), top: this.s(5), bottom: this.s(7) });
         }
+        .layoutWeight(1)
+        .width('100%')
+        .backgroundColor('#FFFFFF');
 
         this.BottomBar();
       }
 
-      if (this.selectOverlayVisible && !this.isLoading) {
+      if (this.selectOverlayVisible) {
         this.SelectOverlay();
       }
     }
@@ -1583,31 +1505,6 @@ struct RelaySettingSet {
     .backgroundColor('#FFFFFF');
   }
 
-  @Builder
-  LoadingBody() {
-    Column() {
-      Blank().layoutWeight(1);
-
-      Text('加载中...')
-        .fontSize(this.s(this.sectionTitleFontSize))
-        .fontColor('#444444')
-        .fontFamily('STKaiti')
-        .textAlign(TextAlign.Center)
-        .margin({ bottom: this.s(6) });
-
-      Text('正在准备当前区定值')
-        .fontSize(this.s(this.inputValueFontSize))
-        .fontColor('#666666')
-        .fontFamily('STKaiti')
-        .textAlign(TextAlign.Center);
-
-      Blank().layoutWeight(1);
-    }
-    .layoutWeight(1)
-    .width('100%')
-    .padding({ left: this.s(10), right: this.s(10), top: this.s(8), bottom: this.s(8) })
-    .backgroundColor('#FFFFFF');
-  }
   @Builder
   HeaderBar() {
     Row() {
