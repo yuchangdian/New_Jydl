@@ -90,7 +90,11 @@ export struct CommonSetting_TeleSignaling_Set {
   @State vm: CommonSettingTeleSignalingVM = new CommonSettingTeleSignalingVM();
   @State formData: CommonSettingTeleSignalingData = createDefaultCommonSettingTeleSignalingData();
   @State uiScale: number = 1;
-  @State logicOverlayVisible: boolean = false;
+  @State selectOverlayVisible: boolean = false;
+  @State selectOverlayTitle: string = '';
+  @State selectOverlayFieldKey: string = '';
+  @State selectOverlayValue: string = '';
+  @State selectOverlayOptions: string[] = [];
   @State feedbackDialogVisible: boolean = false;
   @State feedbackMessage: string = '';
 
@@ -193,6 +197,60 @@ export struct CommonSetting_TeleSignaling_Set {
     }
   }
 
+  private getSelectValue(fieldKey: string): string {
+    switch (fieldKey) {
+      case 'logic_mode':
+        return this.formData.logicMode;
+      default:
+        return '';
+    }
+  }
+
+  private setSelectValue(fieldKey: string, value: string): void {
+    switch (fieldKey) {
+      case 'logic_mode':
+        this.formData.logicMode = value;
+        break;
+      default:
+        break;
+    }
+  }
+
+  private getSelectOptions(fieldKey: string): string[] {
+    switch (fieldKey) {
+      case 'logic_mode':
+        return this.logicOptions;
+      default:
+        return [];
+    }
+  }
+
+  private openSelectOverlay(fieldKey: string, title: string): void {
+    this.selectOverlayFieldKey = fieldKey;
+    this.selectOverlayTitle = title.endsWith(':') ? title.substring(0, title.length - 1) : title;
+    this.selectOverlayValue = this.getSelectValue(fieldKey);
+    this.selectOverlayOptions = this.getSelectOptions(fieldKey).slice();
+    this.selectOverlayVisible = true;
+  }
+
+  private closeSelectOverlay(): void {
+    this.selectOverlayVisible = false;
+    this.selectOverlayFieldKey = '';
+    this.selectOverlayTitle = '';
+  }
+
+  private applySelectOverlayValue(value: string): void {
+    if (this.selectOverlayFieldKey.length > 0) {
+      this.setSelectValue(this.selectOverlayFieldKey, value);
+    }
+    this.selectOverlayValue = value;
+    this.closeSelectOverlay();
+  }
+
+  private handleSelectFieldClick(fieldKey: string, label: string): void {
+    this.openSelectOverlay(fieldKey, label);
+  }
+
   private resetDefaults(): void {
     this.formData = createDefaultCommonSettingTeleSignalingData();
   }
@@ -205,19 +263,6 @@ export struct CommonSetting_TeleSignaling_Set {
   private closeFeedback(): void {
     this.feedbackDialogVisible = false;
     this.feedbackMessage = '';
-  }
-
-  private openLogicOverlay(): void {
-    this.logicOverlayVisible = true;
-  }
-
-  private closeLogicOverlay(): void {
-    this.logicOverlayVisible = false;
-  }
-
-  private applyLogicMode(value: string): void {
-    this.formData.logicMode = value;
-    this.closeLogicOverlay();
   }
 
   build() {
@@ -238,8 +283,9 @@ export struct CommonSetting_TeleSignaling_Set {
       .alignItems(HorizontalAlign.Center)
       .backgroundColor('#FFFFFF');
 
-      if (this.logicOverlayVisible) {
-        this.LogicOverlay();
+
+      if (this.selectOverlayVisible) {
+        this.SelectOverlay();
       }
 
       if (this.feedbackDialogVisible) {
@@ -369,9 +415,7 @@ export struct CommonSetting_TeleSignaling_Set {
       Row() {
         Blank().width(this.s(this.rowLeadingSpace));
         this.FieldLabel('开入量采集逻辑:', this.fieldLabelWidth);
-        this.ComboField(this.formData.logicMode, this.comboWidth, () => {
-          this.openLogicOverlay();
-        });
+        this.ComboField('开入量采集逻辑:', 'logic_mode', this.comboWidth);
         Blank().width(this.s(this.logicTrailingSpace));
       }
       .width(this.s(this.bodyWidth))
@@ -429,13 +473,14 @@ export struct CommonSetting_TeleSignaling_Set {
   }
 
   @Builder
-  ComboField(value: string, width: number, onClickEvent: () => void) {
+  ComboField(label: string, fieldKey: string, boxWidth: number) {
     Row() {
-      Text(value)
+      Text(this.getSelectValue(fieldKey))
         .layoutWeight(1)
         .fontSize(this.s(this.fontSize.inputValue))
         .fontColor('#111111')
         .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Clip })
         .textAlign(TextAlign.Start);
 
       Text('▼')
@@ -445,7 +490,7 @@ export struct CommonSetting_TeleSignaling_Set {
         .textAlign(TextAlign.Center)
         .margin({ left: this.s(4) });
     }
-    .width(this.s(width))
+    .width(this.s(boxWidth))
     .height(this.s(this.inputHeight))
     .padding({ left: this.s(6), right: this.s(4) })
     .backgroundColor(this.fieldBackgroundColor)
@@ -453,7 +498,7 @@ export struct CommonSetting_TeleSignaling_Set {
     .borderRadius(0)
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
-      onClickEvent();
+      this.handleSelectFieldClick(fieldKey, label);
     });
   }
 
@@ -471,7 +516,7 @@ export struct CommonSetting_TeleSignaling_Set {
   }
 
   @Builder
-  LogicOverlay() {
+  SelectOverlay() {
     Stack() {
       Row() {
       }
@@ -479,11 +524,11 @@ export struct CommonSetting_TeleSignaling_Set {
       .height('100%')
       .backgroundColor('#55000000')
       .onClick(() => {
-        this.closeLogicOverlay();
+        this.closeSelectOverlay();
       });
 
       Column() {
-        Text('开入量采集逻辑')
+        Text(this.selectOverlayTitle)
           .width('100%')
           .fontSize(this.s(this.fontSize.dialogTitle))
           .fontWeight(FontWeight.Bold)
@@ -492,7 +537,7 @@ export struct CommonSetting_TeleSignaling_Set {
           .textAlign(TextAlign.Center)
           .margin({ bottom: this.s(10) });
 
-        ForEach(this.logicOptions, (option: string) => {
+        ForEach(this.selectOverlayOptions, (option: string) => {
           Button() {
             Text(option)
               .fontSize(this.s(this.fontSize.dialogBody))
@@ -502,11 +547,11 @@ export struct CommonSetting_TeleSignaling_Set {
           .width('100%')
           .height(this.s(42))
           .margin({ bottom: this.s(6) })
-          .backgroundColor(option === this.formData.logicMode ? '#D9E9F8' : '#FFFFFF')
-          .border({ width: 1, color: option === this.formData.logicMode ? '#7A9CC0' : '#BEBEBE' })
+          .backgroundColor(option === this.selectOverlayValue ? '#D9E9F8' : '#FFFFFF')
+          .border({ width: 1, color: option === this.selectOverlayValue ? '#7A9CC0' : '#BEBEBE' })
           .borderRadius(this.s(6))
           .onClick(() => {
-            this.applyLogicMode(option);
+            this.applySelectOverlayValue(option);
           });
         }, (option: string) => option)
 
@@ -521,7 +566,7 @@ export struct CommonSetting_TeleSignaling_Set {
           .border({ width: 0 })
           .borderRadius(this.s(6))
           .onClick(() => {
-            this.closeLogicOverlay();
+            this.closeSelectOverlay();
           });
       }
       .width(this.s(this.overlayCardWidth))
@@ -533,7 +578,6 @@ export struct CommonSetting_TeleSignaling_Set {
     .width('100%')
     .height('100%');
   }
-
   @Builder
   FeedbackOverlay() {
     Stack() {
@@ -649,4 +693,8 @@ export struct CommonSetting_TeleSignaling_Set {
       });
   }
 }
+
+
+
+
 

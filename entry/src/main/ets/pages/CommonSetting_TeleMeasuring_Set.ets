@@ -1,28 +1,20 @@
-import router from '@ohos.router';
+﻿import router from '@ohos.router';
 import display from '@ohos.display';
 
-interface CommonSettingTeleMeasuringData {
-  cycleDetection: string;
-  primaryEnergyMode: string;
-  frequencyDeadBand: string;
-  acVoltageDeadBand: string;
-  dcVoltageDeadBand: string;
-  acCurrentDeadBand: string;
-  powerDeadBand: string;
-  powerFactorDeadBand: string;
+@Observed
+class CommonSettingTeleMeasuringData {
+  cycleDetection: string = '00.00';
+  primaryEnergyMode: string = '一次值';
+  frequencyDeadBand: string = '00.00';
+  acVoltageDeadBand: string = '00.00';
+  dcVoltageDeadBand: string = '00.00';
+  acCurrentDeadBand: string = '00.00';
+  powerDeadBand: string = '00.00';
+  powerFactorDeadBand: string = '00.00';
 }
 
 function createDefaultCommonSettingTeleMeasuringData(): CommonSettingTeleMeasuringData {
-  return {
-    cycleDetection: '00.00',
-    primaryEnergyMode: '一次值',
-    frequencyDeadBand: '00.00',
-    acVoltageDeadBand: '00.00',
-    dcVoltageDeadBand: '00.00',
-    acCurrentDeadBand: '00.00',
-    powerDeadBand: '00.00',
-    powerFactorDeadBand: '00.00'
-  };
+  return new CommonSettingTeleMeasuringData();
 }
 
 @Observed
@@ -63,7 +55,11 @@ export struct CommonSetting_TeleMeasuring_Set {
   @State vm: CommonSettingTeleMeasuringVM = new CommonSettingTeleMeasuringVM();
   @State formData: CommonSettingTeleMeasuringData = createDefaultCommonSettingTeleMeasuringData();
   @State uiScale: number = 1;
-  @State primaryEnergyOverlayVisible: boolean = false;
+  @State selectOverlayVisible: boolean = false;
+  @State selectOverlayTitle: string = '';
+  @State selectOverlayFieldKey: string = '';
+  @State selectOverlayValue: string = '';
+  @State selectOverlayOptions: string[] = [];
   @State feedbackDialogVisible: boolean = false;
   @State feedbackMessage: string = '';
 
@@ -118,17 +114,58 @@ export struct CommonSetting_TeleMeasuring_Set {
     this.feedbackMessage = '';
   }
 
-  private openPrimaryEnergyOverlay(): void {
-    this.primaryEnergyOverlayVisible = true;
+  private getSelectValue(fieldKey: string): string {
+    switch (fieldKey) {
+      case 'primary_energy_mode':
+        return this.formData.primaryEnergyMode;
+      default:
+        return '';
+    }
   }
 
-  private closePrimaryEnergyOverlay(): void {
-    this.primaryEnergyOverlayVisible = false;
+  private setSelectValue(fieldKey: string, value: string): void {
+    switch (fieldKey) {
+      case 'primary_energy_mode':
+        this.formData.primaryEnergyMode = value;
+        break;
+      default:
+        break;
+    }
   }
 
-  private applyPrimaryEnergyMode(value: string): void {
-    this.formData.primaryEnergyMode = value;
-    this.closePrimaryEnergyOverlay();
+  private getSelectOptions(fieldKey: string): string[] {
+    switch (fieldKey) {
+      case 'primary_energy_mode':
+        return this.primaryEnergyOptions;
+      default:
+        return [];
+    }
+  }
+
+  private openSelectOverlay(fieldKey: string, title: string): void {
+    this.selectOverlayFieldKey = fieldKey;
+    this.selectOverlayTitle = title.endsWith(':') ? title.substring(0, title.length - 1) : title;
+    this.selectOverlayValue = this.getSelectValue(fieldKey);
+    this.selectOverlayOptions = this.getSelectOptions(fieldKey).slice();
+    this.selectOverlayVisible = true;
+  }
+
+  private closeSelectOverlay(): void {
+    this.selectOverlayVisible = false;
+    this.selectOverlayFieldKey = '';
+    this.selectOverlayTitle = '';
+  }
+
+  private applySelectOverlayValue(value: string): void {
+    if (this.selectOverlayFieldKey.length > 0) {
+      this.setSelectValue(this.selectOverlayFieldKey, value);
+    }
+    this.selectOverlayValue = value;
+    this.closeSelectOverlay();
+  }
+
+  private handleSelectFieldClick(fieldKey: string, label: string): void {
+    this.openSelectOverlay(fieldKey, label);
   }
 
   build() {
@@ -149,8 +186,8 @@ export struct CommonSetting_TeleMeasuring_Set {
       .alignItems(HorizontalAlign.Center)
       .backgroundColor('#FFFFFF');
 
-      if (this.primaryEnergyOverlayVisible) {
-        this.PrimaryEnergyOverlay();
+      if (this.selectOverlayVisible) {
+        this.SelectOverlay();
       }
 
       if (this.feedbackDialogVisible) {
@@ -255,9 +292,7 @@ export struct CommonSetting_TeleMeasuring_Set {
         this.UnitLabel('S', 20);
         Blank().width(this.s(150));
         this.FieldLabel('电度量上送值:', 160);
-        this.ComboField(this.formData.primaryEnergyMode, this.comboWidth, () => {
-          this.openPrimaryEnergyOverlay();
-        });
+        this.ComboField('电度量上送值:', 'primary_energy_mode', this.comboWidth);
         Blank().width(this.s(200));
       }
       .width(this.s(this.bodyWidth))
@@ -401,23 +436,24 @@ export struct CommonSetting_TeleMeasuring_Set {
   }
 
   @Builder
-  ComboField(value: string, width: number, onClickEvent: () => void) {
+  ComboField(label: string, fieldKey: string, boxWidth: number) {
     Row() {
-      Text(value)
+      Text(this.getSelectValue(fieldKey))
         .layoutWeight(1)
         .fontSize(this.s(this.fontSize.inputValue))
         .fontColor('#111111')
         .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Clip })
         .textAlign(TextAlign.Start);
 
-      Text('▾')
+      Text('▼')
         .width(this.s(14))
         .fontSize(this.s(this.fontSize.arrow))
         .fontColor('#111111')
         .textAlign(TextAlign.Center)
         .margin({ left: this.s(4) });
     }
-    .width(this.s(width))
+    .width(this.s(boxWidth))
     .height(this.s(this.inputHeight))
     .padding({ left: this.s(6), right: this.s(4) })
     .backgroundColor(this.fieldBackgroundColor)
@@ -425,7 +461,7 @@ export struct CommonSetting_TeleMeasuring_Set {
     .borderRadius(this.s(this.bottomButtonRadius))
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
-      onClickEvent();
+      this.handleSelectFieldClick(fieldKey, label);
     });
   }
 
@@ -443,7 +479,7 @@ export struct CommonSetting_TeleMeasuring_Set {
   }
 
   @Builder
-  PrimaryEnergyOverlay() {
+  SelectOverlay() {
     Stack() {
       Row() {
       }
@@ -451,11 +487,11 @@ export struct CommonSetting_TeleMeasuring_Set {
       .height('100%')
       .backgroundColor('#55000000')
       .onClick(() => {
-        this.closePrimaryEnergyOverlay();
+        this.closeSelectOverlay();
       });
 
       Column() {
-        Text('电度量上送值')
+        Text(this.selectOverlayTitle)
           .width('100%')
           .fontSize(this.s(this.fontSize.dialogTitle))
           .fontWeight(FontWeight.Bold)
@@ -464,7 +500,7 @@ export struct CommonSetting_TeleMeasuring_Set {
           .textAlign(TextAlign.Center)
           .margin({ bottom: this.s(10) });
 
-        ForEach(this.primaryEnergyOptions, (option: string) => {
+        ForEach(this.selectOverlayOptions, (option: string) => {
           Button() {
             Text(option)
               .fontSize(this.s(this.fontSize.dialogBody))
@@ -474,11 +510,11 @@ export struct CommonSetting_TeleMeasuring_Set {
           .width('100%')
           .height(this.s(42))
           .margin({ bottom: this.s(6) })
-          .backgroundColor(option === this.formData.primaryEnergyMode ? '#D9E9F8' : '#FFFFFF')
-          .border({ width: 1, color: option === this.formData.primaryEnergyMode ? '#7A9CC0' : '#BEBEBE' })
+          .backgroundColor(option === this.selectOverlayValue ? '#D9E9F8' : '#FFFFFF')
+          .border({ width: 1, color: option === this.selectOverlayValue ? '#7A9CC0' : '#BEBEBE' })
           .borderRadius(this.s(6))
           .onClick(() => {
-            this.applyPrimaryEnergyMode(option);
+            this.applySelectOverlayValue(option);
           });
         }, (option: string) => option)
 
@@ -493,7 +529,7 @@ export struct CommonSetting_TeleMeasuring_Set {
           .border({ width: 0 })
           .borderRadius(this.s(6))
           .onClick(() => {
-            this.closePrimaryEnergyOverlay();
+            this.closeSelectOverlay();
           });
       }
       .width(this.s(this.overlayCardWidth))
@@ -505,7 +541,6 @@ export struct CommonSetting_TeleMeasuring_Set {
     .width('100%')
     .height('100%');
   }
-
   @Builder
   FeedbackOverlay() {
     Stack() {
@@ -619,3 +654,6 @@ export struct CommonSetting_TeleMeasuring_Set {
       });
   }
 }
+
+
+

@@ -1,4 +1,4 @@
-import router from '@ohos.router';
+﻿import router from '@ohos.router';
 import display from '@ohos.display';
 import fs from '@ohos.file.fs';
 import {
@@ -82,7 +82,11 @@ export struct CommonSetting_TeleControlling_Set {
   @State vm: CommonSettingTeleControllingVM = new CommonSettingTeleControllingVM();
   @State formData: CommonSettingTeleControllingData = createDefaultCommonSettingTeleControllingData();
   @State uiScale: number = 1;
-  @State closeModeOverlayVisible: boolean = false;
+  @State selectOverlayVisible: boolean = false;
+  @State selectOverlayTitle: string = '';
+  @State selectOverlayFieldKey: string = '';
+  @State selectOverlayValue: string = '';
+  @State selectOverlayOptions: string[] = [];
   @State feedbackDialogVisible: boolean = false;
   @State feedbackMessage: string = '';
 
@@ -179,17 +183,58 @@ export struct CommonSetting_TeleControlling_Set {
     this.feedbackMessage = '';
   }
 
-  private openCloseModeOverlay(): void {
-    this.closeModeOverlayVisible = true;
+  private getSelectValue(fieldKey: string): string {
+    switch (fieldKey) {
+      case 'remote_close_mode':
+        return this.formData.remoteCloseMode;
+      default:
+        return '';
+    }
   }
 
-  private closeCloseModeOverlay(): void {
-    this.closeModeOverlayVisible = false;
+  private setSelectValue(fieldKey: string, value: string): void {
+    switch (fieldKey) {
+      case 'remote_close_mode':
+        this.formData.remoteCloseMode = value;
+        break;
+      default:
+        break;
+    }
   }
 
-  private applyCloseMode(value: string): void {
-    this.formData.remoteCloseMode = value;
-    this.closeCloseModeOverlay();
+  private getSelectOptions(fieldKey: string): string[] {
+    switch (fieldKey) {
+      case 'remote_close_mode':
+        return this.closeModeOptions;
+      default:
+        return [];
+    }
+  }
+
+  private openSelectOverlay(fieldKey: string, title: string): void {
+    this.selectOverlayFieldKey = fieldKey;
+    this.selectOverlayTitle = title.endsWith(':') ? title.substring(0, title.length - 1) : title;
+    this.selectOverlayValue = this.getSelectValue(fieldKey);
+    this.selectOverlayOptions = this.getSelectOptions(fieldKey).slice();
+    this.selectOverlayVisible = true;
+  }
+
+  private closeSelectOverlay(): void {
+    this.selectOverlayVisible = false;
+    this.selectOverlayFieldKey = '';
+    this.selectOverlayTitle = '';
+  }
+
+  private applySelectOverlayValue(value: string): void {
+    if (this.selectOverlayFieldKey.length > 0) {
+      this.setSelectValue(this.selectOverlayFieldKey, value);
+    }
+    this.selectOverlayValue = value;
+    this.closeSelectOverlay();
+  }
+
+  private handleSelectFieldClick(fieldKey: string, label: string): void {
+    this.openSelectOverlay(fieldKey, label);
   }
 
   build() {
@@ -210,8 +255,8 @@ export struct CommonSetting_TeleControlling_Set {
       .alignItems(HorizontalAlign.Center)
       .backgroundColor('#FFFFFF');
 
-      if (this.closeModeOverlayVisible) {
-        this.CloseModeOverlay();
+      if (this.selectOverlayVisible) {
+        this.SelectOverlay();
       }
 
       if (this.feedbackDialogVisible) {
@@ -515,9 +560,7 @@ export struct CommonSetting_TeleControlling_Set {
       this.UnitLabel('ms', 40);
       Blank().width(this.s(90));
       this.FieldLabel(STR_REMOTE_CLOSE_MODE, 160);
-      this.ComboField(this.formData.remoteCloseMode, this.closeModeWidth, () => {
-        this.openCloseModeOverlay();
-      });
+      this.ComboField(STR_REMOTE_CLOSE_MODE, 'remote_close_mode', this.closeModeWidth);
       Blank().width(this.s(50));
     }
     .width(this.s(this.bodyWidth))
@@ -568,9 +611,9 @@ export struct CommonSetting_TeleControlling_Set {
   }
 
   @Builder
-  ComboField(value: string, width: number, onClickEvent: () => void) {
+  ComboField(label: string, fieldKey: string, boxWidth: number) {
     Row() {
-      Text(value)
+      Text(this.getSelectValue(fieldKey))
         .layoutWeight(1)
         .fontSize(this.s(this.fontSize.inputValue))
         .fontColor('#111111')
@@ -578,14 +621,14 @@ export struct CommonSetting_TeleControlling_Set {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .textAlign(TextAlign.Start);
 
-      Text('\u25be')
+      Text('▼')
         .width(this.s(14))
         .fontSize(this.s(this.fontSize.arrow))
         .fontColor('#111111')
         .textAlign(TextAlign.Center)
         .margin({ left: this.s(4) });
     }
-    .width(this.s(width))
+    .width(this.s(boxWidth))
     .height(this.s(this.inputHeight))
     .padding({ left: this.s(6), right: this.s(4) })
     .backgroundColor(this.fieldBackgroundColor)
@@ -593,7 +636,7 @@ export struct CommonSetting_TeleControlling_Set {
     .borderRadius(this.s(this.fieldRadius))
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
-      onClickEvent();
+      this.handleSelectFieldClick(fieldKey, label);
     });
   }
 
@@ -611,7 +654,7 @@ export struct CommonSetting_TeleControlling_Set {
   }
 
   @Builder
-  CloseModeOverlay() {
+  SelectOverlay() {
     Stack() {
       Row() {
       }
@@ -619,11 +662,11 @@ export struct CommonSetting_TeleControlling_Set {
       .height('100%')
       .backgroundColor('#55000000')
       .onClick(() => {
-        this.closeCloseModeOverlay();
+        this.closeSelectOverlay();
       });
 
       Column() {
-        Text(STR_REMOTE_CLOSE_MODE)
+        Text(this.selectOverlayTitle)
           .width('100%')
           .fontSize(this.s(this.fontSize.dialogTitle))
           .fontWeight(FontWeight.Bold)
@@ -632,7 +675,7 @@ export struct CommonSetting_TeleControlling_Set {
           .textAlign(TextAlign.Center)
           .margin({ bottom: this.s(10) });
 
-        ForEach(this.closeModeOptions, (option: string) => {
+        ForEach(this.selectOverlayOptions, (option: string) => {
           Button() {
             Text(option)
               .width('100%')
@@ -645,11 +688,11 @@ export struct CommonSetting_TeleControlling_Set {
           .width('100%')
           .height(this.s(48))
           .margin({ bottom: this.s(6) })
-          .backgroundColor(option === this.formData.remoteCloseMode ? '#D9E9F8' : '#FFFFFF')
-          .border({ width: 1, color: option === this.formData.remoteCloseMode ? '#7A9CC0' : '#BEBEBE' })
+          .backgroundColor(option === this.selectOverlayValue ? '#D9E9F8' : '#FFFFFF')
+          .border({ width: 1, color: option === this.selectOverlayValue ? '#7A9CC0' : '#BEBEBE' })
           .borderRadius(this.s(8))
           .onClick(() => {
-            this.applyCloseMode(option);
+            this.applySelectOverlayValue(option);
           });
         }, (option: string) => option)
 
@@ -664,7 +707,7 @@ export struct CommonSetting_TeleControlling_Set {
           .border({ width: 0 })
           .borderRadius(this.s(8))
           .onClick(() => {
-            this.closeCloseModeOverlay();
+            this.closeSelectOverlay();
           });
       }
       .width(this.s(this.overlayCardWidth))
@@ -676,7 +719,6 @@ export struct CommonSetting_TeleControlling_Set {
     .width('100%')
     .height('100%');
   }
-
   @Builder
   FeedbackOverlay() {
     Stack() {
@@ -797,3 +839,5 @@ export struct CommonSetting_TeleControlling_Set {
       });
   }
 }
+
+
